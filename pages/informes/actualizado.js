@@ -1,15 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/sidebar";
 import { getCookie } from "../../src/utils/cookieUtils";
-import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
-  Typography,
-  FormGroup,
-  FormControlLabel,
-  Checkbox,
-} from "@mui/material";
+import {Accordion,AccordionDetails,AccordionSummary,Typography,FormGroup,FormControlLabel,Checkbox,} from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import LoadingModal from "@/components/loading";
 import informeStyles from "../../src/styles/informe.js";
@@ -21,14 +13,24 @@ const Actualizado = () => {
   const [updatedRubros, setUpdatedRubros] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isVisible, setIsVisible] = useState(false);
-  const [isTotalVisible, setIsTotalVisible] = useState(false);
+  const [isTotalVisible, setIsTotalVisible] = useState(true);
   const [isUtilidadVisible, setIsUtilidadVisible] = useState(true);
   const [isRubroVisible, setIsRubroVisible] = useState(false);
   const [isSubrubroVisible, setIsSubrubroVisible] = useState(false);
   const [isAuxiliarVisible, setIsAuxiliarVisible] = useState(false);
   const [isCuentaVisible, setIsCuentaVisible] = useState(false);
+  const [applyPercentage, setApplyPercentage] = useState(true);
 
+  const handleTotalToggle = () => {
+    setIsTotalVisible(!isTotalVisible);
+  };
+  const handleUtilidadToggle = () => {
+    setIsUtilidadVisible(!isUtilidadVisible);
+  };
+  const handleApplyPercentageToggle = (event) => {
+    setApplyPercentage(event.target.checked);
+  };
+  
   const organizeData = (data) => {
     const organizedData = {};
 
@@ -83,7 +85,7 @@ const Actualizado = () => {
       organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex].auxiliares[auxiliarIndex].total += totalPresupuestoMes;
       organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex].total += totalPresupuestoMes;
 
-      if ([16].includes(subrubroIndex)) {
+      if (rubroIndex === 3 && subrubroIndex === 14) {
 
       } else {
         // Agregar a los totales de rubro, zona y UEN si no es "HONORARIOS INTERNOS"
@@ -93,18 +95,6 @@ const Actualizado = () => {
       }
     });
     return organizedData;
-  };
-  
-
-  const handleToggle = () => {
-    setIsVisible(!isVisible);
-  };
-
-  const handleTotalToggle = () => {
-    setIsTotalVisible(!isTotalVisible);
-  };
-  const handleUtilidadToggle = () => {
-    setIsUtilidadVisible(!isUtilidadVisible);
   };
 
   const fetchData = async () => {
@@ -138,9 +128,10 @@ const Actualizado = () => {
         }
   
         const data = await presupuestosResponse.json();
+        console.log("Data:", data);
         allData = [...allData, ...data.results]; // Concatenate new data
 
-        totalPages = Math.ceil(data.count / 2000); 
+        totalPages = Math.ceil(data.count / 3000); 
         page++; // Move to the next page
       } while (page <= totalPages);
       
@@ -196,6 +187,8 @@ const Actualizado = () => {
       }
     });
   
+    const costosDeVentacostosIndirectosTotal =
+       costosDeVentaTotal + costosIndirectosTotal;
     const utilidadBruta =
       ingresosOperacionalesTotal - costosDeVentaTotal - costosIndirectosTotal;
     const utilidadoPerdidaOperacional =
@@ -204,6 +197,7 @@ const Actualizado = () => {
       utilidadoPerdidaOperacional + ingresosNoOperacionalesTotal - gastosNoOperacionalesTotal;
   
     return {
+      costosDeVentacostosIndirectosTotal,
       gastosNoOperacionalesTotal,
       ingresosNoOperacionalesTotal,
       utilidadAntesDeImpuesto,
@@ -217,7 +211,7 @@ const Actualizado = () => {
     };
   };
   
-  const calculateTotalsByZone = (zones, updatedRubros) => {
+  const calculateTotalsByZone = (zones) => {
     const totalsByZone = {};
   
     // Iterar por zonas y rubros para calcular los totales por zona
@@ -225,15 +219,15 @@ const Actualizado = () => {
       // Inicializar objeto de totales para la zona si no existe
       if (!totalsByZone[zoneName]) {
         totalsByZone[zoneName] = {
-          zonaingresosOperacionalesTotal: 0,
-          zonacostosIndirectosTotal: 0,
-          zonacostosDeVentaTotal: 0,
-          zonagastosOperacionalesAdministrativosTotal: 0,
-          zonagastosOperacionalesComercialesTotal: 0,
-          zonautilidadBruta: 0,
-          zonautilidadPerdidaOperacional: 0,
-          zonaingresosNoOperacionalesTotal: 0,
-          zonagastosNoOperacionalesTotal: 0,
+          ingresosOperacionalesTotal: 0,
+          costosIndirectosTotal: 0,
+          costosDeVentaTotal: 0,
+          gastosOperacionalesAdministrativosTotal: 0,
+          gastosOperacionalesComercialesTotal: 0,
+          utilidadBruta: 0,
+          utilidadoPerdidaOperacional: 0,
+          ingresosNoOperacionalesTotal: 0,
+          gastosNoOperacionalesTotal: 0,
         };
       }
   
@@ -246,181 +240,297 @@ const Actualizado = () => {
           const total = rubroData?.total || 0;
   
           if (rubroName === "INGRESOS OPERACIONALES") {
-            totalsByZone[zoneName].zonaingresosOperacionalesTotal += total;
+            totalsByZone[zoneName].ingresosOperacionalesTotal += total;
           } else if (rubroName === "COSTOS INDIRECTOS") {
-            totalsByZone[zoneName].zonacostosIndirectosTotal += total;
+            totalsByZone[zoneName].costosIndirectosTotal += total;
           } else if (rubroName === "COSTOS DE VENTA") {
-            totalsByZone[zoneName].zonacostosDeVentaTotal += total;
+            totalsByZone[zoneName].costosDeVentaTotal += total;
           } else if (rubroName === "GASTOS OPERACIONALES DE ADMINISTRACION") {
-            totalsByZone[zoneName].zonagastosOperacionalesAdministrativosTotal += total;
+            totalsByZone[zoneName].gastosOperacionalesAdministrativosTotal += total;
           } else if (rubroName === "GASTOS OPERACIONALES DE COMERCIALIZACION") {
-            totalsByZone[zoneName].zonagastosOperacionalesComercialesTotal += total;
+            totalsByZone[zoneName].gastosOperacionalesComercialesTotal += total;
           } else if (rubroName === "INGRESOS NO OPERACIONALES") {
-            totalsByZone[zoneName].zonaingresosNoOperacionalesTotal += total;
+            totalsByZone[zoneName].ingresosNoOperacionalesTotal += total;
           } else if (rubroName === "GASTOS NO OPERACIONALES") {
-            totalsByZone[zoneName].zonagastosNoOperacionalesTotal += total;
+            totalsByZone[zoneName].gastosNoOperacionalesTotal += total;
           }
         });
       }
   
+      totalsByZone[zoneName].costosDeVentacostosIndirectosTotal =
+        totalsByZone[zoneName].costosDeVentaTotal +
+        totalsByZone[zoneName].costosIndirectosTotal;
+
       // Calcular utilidad bruta y operativa para la zona
-      totalsByZone[zoneName].zonautilidadBruta =
-        totalsByZone[zoneName].zonaingresosOperacionalesTotal -
-        totalsByZone[zoneName].zonacostosDeVentaTotal -
-        totalsByZone[zoneName].zonacostosIndirectosTotal;
+      totalsByZone[zoneName].utilidadBruta =
+        totalsByZone[zoneName].ingresosOperacionalesTotal -
+        totalsByZone[zoneName].costosDeVentaTotal -
+        totalsByZone[zoneName].costosIndirectosTotal;
   
-      totalsByZone[zoneName].zonautilidadPerdidaOperacional =
-        totalsByZone[zoneName].zonautilidadBruta -
-        totalsByZone[zoneName].zonagastosOperacionalesAdministrativosTotal -
-        totalsByZone[zoneName].zonagastosOperacionalesComercialesTotal;
+      totalsByZone[zoneName].utilidadoPerdidaOperacional =
+        totalsByZone[zoneName].utilidadBruta -
+        totalsByZone[zoneName].gastosOperacionalesAdministrativosTotal -
+        totalsByZone[zoneName].gastosOperacionalesComercialesTotal;
   
-      totalsByZone[zoneName].zonautilidadAntesDeImpuesto =
-        totalsByZone[zoneName].zonautilidadPerdidaOperacional +
-        totalsByZone[zoneName].zonaingresosNoOperacionalesTotal -
-        totalsByZone[zoneName].zonagastosNoOperacionalesTotal;
+      totalsByZone[zoneName].utilidadAntesDeImpuesto =
+        totalsByZone[zoneName].utilidadoPerdidaOperacional +
+        totalsByZone[zoneName].ingresosNoOperacionalesTotal -
+        totalsByZone[zoneName].gastosNoOperacionalesTotal;
     });
   
     return totalsByZone;
   };
-
+  const yearPercentages = {
+    2024: {
+      nacionalConstructora: 0.4,
+      nacionalPromotora: 0.4,
+      nacionalInmobiliaria: 0.2,
+      diferenteNacionalConstructora: 0.4,
+      diferenteNacionalPromotora: 0.5,
+      diferenteNacionalInmobiliaria: 0.1,
+    },
+    2025: {
+      nacionalConstructora: 0.4,
+      nacionalPromotora: 0.4,
+      nacionalInmobiliaria: 0.2,
+      diferenteNacionalConstructora: 0.4,
+      diferenteNacionalPromotora: 0.5,
+      diferenteNacionalInmobiliaria: 0.1,
+    },
+  };
   const renderData = (data) => {
     return Object.entries(data).map(([year, uens]) => {
+
+      // Obtener porcentajes para el año actual
+      const percentages = yearPercentages[year] || {};
+
       // Calculate the total for "Unidades de Apoyo" to split among other UENs
-      const apoyoTotal = uens["Unidades de Apoyo"]?.total || 0;
-      const apoyoTotals = calculateTotals(uens["Unidades de Apoyo"]?.zones || {});
+      const apoyoTotalZonas = uens["Unidades de Apoyo"]?.zones || 0;
+      const nacionalTotalsFinal = apoyoTotalZonas.Nacional || {};
+      const exceptonacionalZoneTotalsFinal = Object.fromEntries(
+        Object.entries(apoyoTotalZonas).filter(([zones]) => zones !== "Nacional")
+      );
+      // Distribuir los totales de "Nacional"
+      const nacionalShareConstructoraFinal = calculateShareFinal(nacionalTotalsFinal, percentages.nacionalConstructora);
+      const nacionalSharePromotoraFinal = calculateShareFinal(nacionalTotalsFinal, percentages.nacionalPromotora);
+      const nacionalShareInmobiliariaFinal = calculateShareFinal(nacionalTotalsFinal, percentages.nacionalInmobiliaria);
+      // Distribuir los totales de las demás zonas
+      const otherZonesShareConstructoraFinal = calculateShareExceptoNacionalFinal(exceptonacionalZoneTotalsFinal, percentages.diferenteNacionalConstructora);
+      const otherZonesSharePromotoraFinal = calculateShareExceptoNacionalFinal(exceptonacionalZoneTotalsFinal, percentages.diferenteNacionalPromotora);
+      const otherZonesShareInmobiliariaFinal = calculateShareExceptoNacionalFinal(exceptonacionalZoneTotalsFinal, percentages.diferenteNacionalInmobiliaria);
+      
+      // Calcular los totales por zona de "Unidades de Apoyo"
+      const apoyoTotalsByZone = calculateTotalsByZone(uens["Unidades de Apoyo"]?.zones || {});
+      const nacionalTotals = apoyoTotalsByZone.Nacional || {};
+      const exceptonacionalZoneTotals = Object.fromEntries(
+        Object.entries(apoyoTotalsByZone).filter(([zones]) => zones !== "Nacional")
+      );
+      // Distribuir los totales de "Nacional"
+      const nacionalShareConstructora = calculateShare(nacionalTotals, percentages.nacionalConstructora);
+      const nacionalSharePromotora = calculateShare(nacionalTotals, percentages.nacionalPromotora);
+      const nacionalShareInmobiliaria = calculateShare(nacionalTotals, percentages.nacionalInmobiliaria);
+      // Distribuir los totales de las demás zonas
+      const otherZonesShareConstructora = calculateShareExceptoNacional(exceptonacionalZoneTotals, percentages.diferenteNacionalConstructora);
+      const otherZonesSharePromotora = calculateShareExceptoNacional(exceptonacionalZoneTotals, percentages.diferenteNacionalPromotora);
+      const otherZonesShareInmobiliaria = calculateShareExceptoNacional(exceptonacionalZoneTotals, percentages.diferenteNacionalInmobiliaria);
 
-      // Split the total of "Unidades de Apoyo" (40% Constructora, 40% Promotora, 20% Inmobiliaria)
-      const apoyoConstructoraShare = apoyoTotal * 0.4;
-      const apoyoPromotoraShare = apoyoTotal * 0.4;
-      const apoyoInmobiliariaShare = apoyoTotal * 0.2;
+      function calculateShareExceptoNacional(totals, percentage) {
+        return Object.keys(totals).reduce((acc, zone) => {
+          acc[zone] = Object.fromEntries(
+            Object.entries(totals[zone]).map(([key, value]) => [key, value * percentage || 0])
+          );
+          return acc;
+        }, {});
+      }
 
-      // Split the main "Unidades de Apoyo" totals by 40%, 40%, and 20%
-      const apoyoShareConstructora = {
-          ingresosOperacionalesTotal: apoyoTotals.ingresosOperacionalesTotal * 0.4,
-          costosIndirectosTotal: apoyoTotals.costosIndirectosTotal * 0.4,
-          costosDeVentaTotal: apoyoTotals.costosDeVentaTotal * 0.4,
-          utilidadBruta: apoyoTotals.utilidadBruta * 0.4,
-          gastosOperacionalesAdministrativosTotal: apoyoTotals.gastosOperacionalesAdministrativosTotal * 0.4,
-          gastosOperacionalesComercialesTotal: apoyoTotals.gastosOperacionalesComercialesTotal * 0.4,
-          ingresosNoOperacionalesTotal: apoyoTotals.ingresosNoOperacionalesTotal * 0.4,
-          gastosNoOperacionalesTotal: apoyoTotals.gastosNoOperacionalesTotal * 0.4,
-          utilidadAntesDeImpuesto: apoyoTotals.utilidadAntesDeImpuesto * 0.4,
-          utilidadoPerdidaOperacional: apoyoTotals.utilidadoPerdidaOperacional * 0.4,
-      };
+      function calculateShareExceptoNacionalFinal(totals, percentage) {
+        return Object.entries(totals).reduce((acc, [zone, data]) => {
+          acc[zone] = { total: data.total * percentage || 0 };
+          return acc;
+        }, {});
+      }
 
-      const apoyoSharePromotora = {
-          ingresosOperacionalesTotal: apoyoTotals.ingresosOperacionalesTotal * 0.4,
-          costosIndirectosTotal: apoyoTotals.costosIndirectosTotal * 0.4,
-          costosDeVentaTotal: apoyoTotals.costosDeVentaTotal * 0.4,
-          utilidadBruta: apoyoTotals.utilidadBruta * 0.4,
-          gastosOperacionalesAdministrativosTotal: apoyoTotals.gastosOperacionalesAdministrativosTotal * 0.4,
-          gastosOperacionalesComercialesTotal: apoyoTotals.gastosOperacionalesComercialesTotal * 0.4,
-          ingresosNoOperacionalesTotal: apoyoTotals.ingresosNoOperacionalesTotal * 0.4,
-          gastosNoOperacionalesTotal: apoyoTotals.gastosNoOperacionalesTotal * 0.4,
-          utilidadAntesDeImpuesto: apoyoTotals.utilidadAntesDeImpuesto * 0.4,
-          utilidadoPerdidaOperacional: apoyoTotals.utilidadoPerdidaOperacional * 0.4,
-      };
+      function calculateShare(totals, percentage) {
+        return Object.keys(totals).reduce((acc, key) => {
+          acc[key] = key === "total" ? totals[key] * percentage || 0 : totals[key];
+          return acc;
+        }, {});
+      }
 
-      const apoyoShareInmobiliaria = {
-          ingresosOperacionalesTotal: apoyoTotals.ingresosOperacionalesTotal * 0.2,
-          costosIndirectosTotal: apoyoTotals.costosIndirectosTotal * 0.2,
-          costosDeVentaTotal: apoyoTotals.costosDeVentaTotal * 0.2,
-          utilidadBruta: apoyoTotals.utilidadBruta * 0.2,
-          gastosOperacionalesAdministrativosTotal: apoyoTotals.gastosOperacionalesAdministrativosTotal * 0.2,
-          gastosOperacionalesComercialesTotal: apoyoTotals.gastosOperacionalesComercialesTotal * 0.2,
-          ingresosNoOperacionalesTotal: apoyoTotals.ingresosNoOperacionalesTotal * 0.2,
-          gastosNoOperacionalesTotal: apoyoTotals.gastosNoOperacionalesTotal * 0.2,
-          utilidadAntesDeImpuesto: apoyoTotals.utilidadAntesDeImpuesto * 0.2,
-          utilidadoPerdidaOperacional: apoyoTotals.utilidadoPerdidaOperacional * 0.2,
-      };
+      function calculateShare(totals, percentage) {
+        return Object.keys(totals).reduce((acc, key) => {
+          acc[key] = totals[key] * percentage || 0;
+          return acc;
+        }, {});
+      }
+      
+      function calculateShareFinal(totals, percentage) {
+        return Object.keys(totals).reduce((acc, key) => {
+          acc[key] = totals[key] * percentage || 0;
+          return {
+            total: (totals.total || 0) * percentage,
+          };
+        }, {});
+      }
+
+      function sumZonesForUEN(zoneShare) {
+        const uenTotal = {};
+        Object.keys(zoneShare).forEach((zone) => {
+          Object.entries(zoneShare[zone]).forEach(([key, value]) => {
+            if (!uenTotal[key]) {
+              uenTotal[key] = 0;
+            }
+            uenTotal[key] += value;
+          });
+        });
+        return uenTotal;
+      }
+
+      const sumConstructora = sumZonesForUEN(otherZonesShareConstructora);
+      const sumPromotora = sumZonesForUEN(otherZonesSharePromotora);
+      const sumInmobiliaria = sumZonesForUEN(otherZonesShareInmobiliaria);
 
       return (
-        <div key={year} > 
-          <Accordion key={year} sx={{ marginBottom: "20px"}} >
+          <div key={year}>
+          <Accordion key={year} sx={{ marginBottom: "20px" }}>
             <AccordionSummary
-              expandIcon={<ExpandMoreIcon sx={{ color:'white' }} />}
+              expandIcon={<ExpandMoreIcon sx={{ color: "white" }} />}
               aria-controls={`panel-${year}-content`}
               id={`panel-${year}-header`}
-              sx={{ background:'#a6a2a2' }}
+              sx={{ background: "#a6a2a2" }}
             >
-              <Typography sx={{color:'white'}}>INFORME DETALLADO DE RESULTADOS {year}</Typography>
+              <Typography sx={{ color: "white" }}>
+                INFORME DETALLADO DE RESULTADOS {year}
+              </Typography>
             </AccordionSummary>
             <AccordionDetails>
-              <div
-                style={{ display: "flex", flexWrap: "wrap", overflow: "auto" }}
-              >
+              <div style={{ display: "flex", flexWrap: "wrap", overflow: "auto" }}>
                 {Object.entries(uens).map(([uen, { total: uenTotal, zones }]) => {
-
-                  // Calculate individual shares for other values from Unidades de Apoyo
-                  let adjustedTotal = uenTotal;               
-
-                  // Adjust the totals for Constructora, Promotora, and Inmobiliaria
-                  if (uen === "Constructora") {
-                      adjustedTotal += apoyoConstructoraShare;
-                  } else if (uen === "Promotora") {
-                      adjustedTotal += apoyoPromotoraShare;
-                  } else if (uen === "Inmobiliaria") {
-                      adjustedTotal += apoyoInmobiliariaShare;
-                  }
-                  // Calculate main totals for this UEN's zones
-                  const uenTotals = calculateTotals(zones);
-
-                  // Initialize adjusted totals with the calculated values
-                  let adjustedTotals = { ...uenTotals };
-
-                  // Distribute "Unidades de Apoyo" totals to each UEN
-                  if (uen === "Constructora") {
-                      Object.keys(adjustedTotals).forEach(key => {
-                          adjustedTotals[key] += apoyoShareConstructora[key];
-                      });
-                  } else if (uen === "Promotora") {
-                      Object.keys(adjustedTotals).forEach(key => {
-                          adjustedTotals[key] += apoyoSharePromotora[key];
-                      });
-                  } else if (uen === "Inmobiliaria") {
-                      Object.keys(adjustedTotals).forEach(key => {
-                          adjustedTotals[key] += apoyoShareInmobiliaria[key];
-                      });
-                  }
-
-                  // Calculate and adjust totals for each zone in this UEN
                   const totalsByZone = calculateTotalsByZone(zones, updatedRubros);
+                  const exceptonacionalZoneTotals = Object.fromEntries(
+                    Object.entries(totalsByZone).filter(([zone]) => zone !== "Nacional")
+                  );
+                  const nacionalZoneTotals = totalsByZone.Nacional || {};
+      
+                  if (applyPercentage) {
+                    if (uen === "Constructora") {
+                      Object.keys(nacionalZoneTotals).forEach((key) => {
+                        if (key in nacionalShareConstructora) {
+                          nacionalZoneTotals[key] += nacionalShareConstructora[key];
+                        }
+                      });
+                    } else if (uen === "Promotora") {
+                      Object.keys(nacionalZoneTotals).forEach((key) => {
+                        if (key in nacionalSharePromotora) {
+                          nacionalZoneTotals[key] += nacionalSharePromotora[key];
+                        }
+                      });
+                    } else if (uen === "Inmobiliaria") {
+                      Object.keys(nacionalZoneTotals).forEach((key) => {
+                        if (key in nacionalShareInmobiliaria) {
+                          nacionalZoneTotals[key] += nacionalShareInmobiliaria[key];
+                        }
+                      });
+                    }
+                  }
+      
+                  if (applyPercentage) {
+                    if (uen === "Constructora") {
+                      Object.keys(exceptonacionalZoneTotals).forEach((zone) => {
+                        if (otherZonesShareConstructora[zone]) {
+                          Object.keys(exceptonacionalZoneTotals[zone]).forEach((key) => {
+                            exceptonacionalZoneTotals[zone][key] += otherZonesShareConstructora[zone][key] || 0;
+                          });
+                        }
+                      });
+                    } else if (uen === "Promotora") {
+                      Object.keys(exceptonacionalZoneTotals).forEach((zone) => {
+                        if (otherZonesSharePromotora[zone]) {
+                          Object.keys(exceptonacionalZoneTotals[zone]).forEach((key) => {
+                            exceptonacionalZoneTotals[zone][key] += otherZonesSharePromotora[zone][key] || 0;
+                          });
+                        }
+                      });
+                    } else if (uen === "Inmobiliaria") {
+                      Object.keys(exceptonacionalZoneTotals).forEach((zone) => {
+                        if (otherZonesShareInmobiliaria[zone]) {
+                          Object.keys(exceptonacionalZoneTotals[zone]).forEach((key) => {
+                            exceptonacionalZoneTotals[zone][key] += otherZonesShareInmobiliaria[zone][key] || 0;
+                          });
+                        }
+                      });
+                    }
+                  }
+
+                  let adjustedTotal = uenTotal;
+
+                  // Aplicar porcentajes solo si el checkbox está marcado
+                  if (applyPercentage) {
+                    if (uen === "Constructora") {
+                      adjustedTotal += nacionalShareConstructoraFinal.total || 0;
+                    } else if (uen === "Promotora") {
+                      adjustedTotal += nacionalSharePromotoraFinal.total || 0;
+                    } else if (uen === "Inmobiliaria") {
+                      adjustedTotal += nacionalShareInmobiliariaFinal.total || 0;
+                    }
+                    if (uen === "Constructora") {
+                      Object.keys(zones).forEach((zone) => {
+                        if (zone !== "Nacional" && otherZonesShareConstructoraFinal[zone]) {
+                          adjustedTotal += otherZonesShareConstructoraFinal[zone].total || 0;
+                        }
+                      });
+                    } else if (uen === "Promotora") {
+                      Object.keys(zones).forEach((zone) => {
+                        if (zone !== "Nacional" && otherZonesSharePromotoraFinal[zone]) {
+                          adjustedTotal += otherZonesSharePromotoraFinal[zone].total || 0;
+                        }
+                      });
+                    } else if (uen === "Inmobiliaria") {
+                      Object.keys(zones).forEach((zone) => {
+                        if (zone !== "Nacional" && otherZonesShareInmobiliariaFinal[zone]) {
+                          adjustedTotal += otherZonesShareInmobiliariaFinal[zone].total || 0;
+                        }
+                      });
+                    }
+                  }
+                  
+                  const uenTotals = calculateTotals(zones);
+                  let adjustedTotals = { ...uenTotals };
+                  
+                  // Aplicar porcentajes a adjustedTotals
+                  if (applyPercentage) {
+                    if (uen === "Constructora") {
+                      Object.keys(adjustedTotals).forEach((key) => {
+                        adjustedTotals[key] += sumConstructora[key] || 0;
+                        adjustedTotals[key] += nacionalShareConstructora[key] || 0;
+                      });
+                    } else if (uen === "Promotora") {
+                      Object.keys(adjustedTotals).forEach((key) => {
+                        adjustedTotals[key] += sumPromotora[key] || 0;
+                        adjustedTotals[key] += nacionalSharePromotora[key] || 0;
+                      });
+                    } else if (uen === "Inmobiliaria") {
+                      Object.keys(adjustedTotals).forEach((key) => {
+                        adjustedTotals[key] += sumInmobiliaria[key] || 0;
+                        adjustedTotals[key] += nacionalShareInmobiliaria[key] || 0;
+                      });
+                    }
+                  }
 
                   return (
                     <div key={uen} style={{ flex: "1 1 20%", margin: "0.2px" }}>
                       <h4>
-                        <div
-                          style={
-                            uen == "Constructora"
-                              ? informeStyles.uenConstructora
-                              : uen == "Inmobiliaria"
-                              ? informeStyles.uenInmobiliaria
-                              : uen == "Unidades de Apoyo"
-                              ? informeStyles.uenUA
-                              : informeStyles.uen
-                          }
-                        >
+                        <div style={uen == "Constructora"? informeStyles.uenConstructora: uen == "Inmobiliaria"? informeStyles.uenInmobiliaria: uen == "Unidades de Apoyo"? informeStyles.uenUA: informeStyles.uen}>
                           <Typography sx={{ color: "white" }}>{uen}:</Typography>
                           {isTotalVisible && (
                             <Typography sx={{ color: "white" }}>
-                              
                               {adjustedTotal.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                             </Typography>
                           )}
                         </div>
                       </h4>
                       {isUtilidadVisible && (
-                        <div
-                          style={
-                            uen == "Constructora"
-                              ? informeStyles.containerConstructora
-                              : uen == "Inmobiliaria"
-                              ? informeStyles.containerInmobiliaria
-                              : uen == "Unidades de Apoyo"
-                              ? informeStyles.containerUA
-                              : informeStyles.container
-                          }
-                        >
+                        <div style={uen == "Constructora"? informeStyles.containerConstructora: uen == "Inmobiliaria"? informeStyles.containerInmobiliaria: uen == "Unidades de Apoyo"? informeStyles.containerUA: informeStyles.container}>
                           <div style={informeStyles.textContent}>
                             <Typography variant="caption">
                               Ingresos Operacionales:
@@ -430,26 +540,14 @@ const Actualizado = () => {
                             </Typography>
                           </div>
                           <div style={informeStyles.textContent}>
-                            <Typography variant="caption">Costos Indirectos:</Typography>
                             <Typography variant="caption">
-                              {adjustedTotals.costosIndirectosTotal.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                              Costos de Venta:
+                            </Typography>
+                            <Typography variant="caption">
+                              {adjustedTotals.costosDeVentacostosIndirectosTotal.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                             </Typography>
                           </div>
-                          <div style={informeStyles.textContent}>
-                            <Typography variant="caption">Costos de Venta:</Typography>
-                            <Typography variant="caption">
-                              {adjustedTotals.costosDeVentaTotal.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                            </Typography>
-                          </div>
-                          <div  style={
-                                  uen == "Constructora"
-                                    ? informeStyles.titleZuConstructora
-                                    : uen == "Inmobiliaria"
-                                    ? informeStyles.titleZuInmobiliaria
-                                    : uen == "Unidades de Apoyo"
-                                    ? informeStyles.titleZuUA
-                                    : informeStyles.titleZu
-                                }>
+                          <div style={uen == "Constructora"? informeStyles.titleZuConstructora: uen == "Inmobiliaria"? informeStyles.titleZuInmobiliaria: uen == "Unidades de Apoyo"? informeStyles.titleZuUA: informeStyles.titleZu}>
                             <Typography variant="caption">
                               Utilidad Bruta:
                             </Typography>
@@ -473,15 +571,7 @@ const Actualizado = () => {
                               {adjustedTotals.gastosOperacionalesComercialesTotal.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                             </Typography>
                           </div>
-                          <div  style={
-                                  uen == "Constructora"
-                                    ? informeStyles.titleZuConstructora
-                                    : uen == "Inmobiliaria"
-                                    ? informeStyles.titleZuInmobiliaria
-                                    : uen == "Unidades de Apoyo"
-                                    ? informeStyles.titleZuUA
-                                    : informeStyles.titleZu
-                                }>
+                          <div style={uen == "Constructora"? informeStyles.titleZuConstructora: uen == "Inmobiliaria"? informeStyles.titleZuInmobiliaria: uen == "Unidades de Apoyo"? informeStyles.titleZuUA: informeStyles.titleZu}>
                             <Typography variant="caption">
                               Utilidad ó (PERDIDA) Operacional:
                             </Typography>
@@ -505,15 +595,7 @@ const Actualizado = () => {
                               {adjustedTotals.gastosNoOperacionalesTotal.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                             </Typography>
                           </div>
-                          <div  style={
-                                  uen == "Constructora"
-                                    ? informeStyles.titleZuConstructora
-                                    : uen == "Inmobiliaria"
-                                    ? informeStyles.titleZuInmobiliaria
-                                    : uen == "Unidades de Apoyo"
-                                    ? informeStyles.titleZuUA
-                                    : informeStyles.titleZu
-                                }>
+                          <div  style={uen == "Constructora"? informeStyles.titleZuConstructora: uen == "Inmobiliaria"? informeStyles.titleZuInmobiliaria: uen == "Unidades de Apoyo"? informeStyles.titleZuUA: informeStyles.titleZu}>
                             <Typography variant="caption" >
                               Utilidad Antes De Impuesto:
                             </Typography>
@@ -523,57 +605,54 @@ const Actualizado = () => {
                           </div>
                         </div>
                       )}
-                      {Object.entries(zones).map(
-                        ([zone, { total: zoneTotal, rubros }]) => (
+                      {Object.entries(zones).map(([zone, { total: zoneTotal, rubros }]) => {
+
+                        let adjustedTotalZone = zoneTotal;
+
+                        // Ajustes para la zona "Nacional"
+                        if (applyPercentage) {
+                          if (zone === "Nacional") {
+                            if (uen === "Constructora") {
+                              adjustedTotalZone += nacionalShareConstructoraFinal.total || 0;
+                            } else if (uen === "Promotora") {
+                              adjustedTotalZone += nacionalSharePromotoraFinal.total || 0;
+                            } else if (uen === "Inmobiliaria") {
+                              adjustedTotalZone += nacionalShareInmobiliariaFinal.total || 0;
+                            }
+                          } else {
+                            // Ajustes para zonas diferentes a "Nacional"
+                            if (uen === "Constructora") {
+                              adjustedTotalZone += otherZonesShareConstructoraFinal[zone]?.total || 0;
+                            } else if (uen === "Promotora") {
+                              adjustedTotalZone += otherZonesSharePromotoraFinal[zone]?.total || 0;
+                            } else if (uen === "Inmobiliaria") {
+                              adjustedTotalZone += otherZonesShareInmobiliariaFinal[zone]?.total || 0;
+                            }
+                          }
+                        }
+
+                        return (
                           <div key={zone}>
                             <h5>
-                              <div
-                              style={
-                                uen == "Constructora"
-                                  ? informeStyles.uenConstructora
-                                  : uen == "Inmobiliaria"
-                                  ? informeStyles.uenInmobiliaria
-                                  : uen == "Unidades de Apoyo"
-                                  ? informeStyles.uenUA
-                                  : informeStyles.uen
-                              }
-                              >
-                                <Typography sx={{color:'white'}}> {zone}:</Typography>
+                              <div style={uen === "Constructora"? informeStyles.uenConstructora: uen === "Inmobiliaria"? informeStyles.uenInmobiliaria: uen === "Unidades de Apoyo"? informeStyles.uenUA: informeStyles.uen}>
+                                <Typography sx={{ color: "white" }}>
+                                  {zone}:
+                                </Typography>
                                 {isTotalVisible && (
-                                  <Typography sx={{color:'white'}}> {zoneTotal.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</Typography>
+                                  <Typography sx={{ color: "white" }}>
+                                    {adjustedTotalZone.toLocaleString("es-ES", {minimumFractionDigits: 0,maximumFractionDigits: 0,})}
+                                  </Typography>
                                 )}
                               </div>
                             </h5>
                             {isUtilidadVisible && (
-                              <div
-                                style={
-                                  uen == "Constructora"
-                                    ? informeStyles.containerConstructora
-                                    : uen == "Inmobiliaria"
-                                    ? informeStyles.containerInmobiliaria
-                                    : uen == "Unidades de Apoyo"
-                                    ? informeStyles.containerUA
-                                    : informeStyles.container
-                                }
-                              >
+                              <div style={uen == "Constructora"? informeStyles.containerConstructora: uen == "Inmobiliaria"? informeStyles.containerInmobiliaria: uen == "Unidades de Apoyo"? informeStyles.containerUA: informeStyles.container}>
                                 <div style={informeStyles.textContent}>
                                   <Typography variant="caption">
                                     Ingresos Operacionales:
                                   </Typography>
                                   <Typography variant="caption">
-                                    {totalsByZone[
-                                      zone
-                                    ].zonaingresosOperacionalesTotal.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                                  </Typography>
-                                </div>
-                                <div style={informeStyles.textContent}>
-                                  <Typography variant="caption">
-                                    Costos Indirectos:
-                                  </Typography>
-                                  <Typography variant="caption">
-                                    {totalsByZone[
-                                      zone
-                                    ].zonacostosIndirectosTotal.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                    {totalsByZone[zone].ingresosOperacionalesTotal.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                   </Typography>
                                 </div>
                                 <div style={informeStyles.textContent}>
@@ -581,25 +660,15 @@ const Actualizado = () => {
                                     Costos de Venta:
                                   </Typography>
                                   <Typography variant="caption">
-                                    {totalsByZone[
-                                      zone
-                                    ].zonacostosDeVentaTotal.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                    {totalsByZone[zone].costosDeVentacostosIndirectosTotal.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                   </Typography>
                                 </div>
-                                <div style={
-                                  uen == "Constructora"
-                                    ? informeStyles.titleZuConstructora
-                                    : uen == "Inmobiliaria"
-                                    ? informeStyles.titleZuInmobiliaria
-                                    : uen == "Unidades de Apoyo"
-                                    ? informeStyles.titleZuUA
-                                    : informeStyles.titleZu
-                                }>
+                                <div style={uen == "Constructora"? informeStyles.titleZuConstructora: uen == "Inmobiliaria"? informeStyles.titleZuInmobiliaria: uen == "Unidades de Apoyo"? informeStyles.titleZuUA: informeStyles.titleZu}>
                                   <Typography variant="caption" >
                                     Utilidad Bruta:
                                   </Typography>
                                   <Typography variant="caption">
-                                    {totalsByZone[zone].zonautilidadBruta.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                    {totalsByZone[zone].utilidadBruta.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                   </Typography>
                                 </div>
                                 <div style={informeStyles.textContent}>
@@ -607,9 +676,7 @@ const Actualizado = () => {
                                     Gastos de Administración:
                                   </Typography>
                                   <Typography variant="caption">
-                                    {totalsByZone[
-                                      zone
-                                    ].zonagastosOperacionalesAdministrativosTotal.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                    {totalsByZone[zone].gastosOperacionalesAdministrativosTotal.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                   </Typography>
                                 </div>
                                 <div style={informeStyles.textContent}>
@@ -617,27 +684,15 @@ const Actualizado = () => {
                                     Gastos de Comercialización:
                                   </Typography>
                                   <Typography variant="caption">
-                                    {totalsByZone[
-                                      zone
-                                    ].zonagastosOperacionalesComercialesTotal.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                    {totalsByZone[zone].gastosOperacionalesComercialesTotal.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                   </Typography>
                                 </div>
-                                <div style={
-                                  uen == "Constructora"
-                                    ? informeStyles.titleZuConstructora
-                                    : uen == "Inmobiliaria"
-                                    ? informeStyles.titleZuInmobiliaria
-                                    : uen == "Unidades de Apoyo"
-                                    ? informeStyles.titleZuUA
-                                    : informeStyles.titleZu
-                                }>
+                                <div style={uen == "Constructora"? informeStyles.titleZuConstructora: uen == "Inmobiliaria"? informeStyles.titleZuInmobiliaria: uen == "Unidades de Apoyo"? informeStyles.titleZuUA: informeStyles.titleZu}>
                                   <Typography variant="caption">
                                     Utilidad ó (PERDIDA) Operacional:
                                   </Typography>
                                   <Typography variant="caption">
-                                    {totalsByZone[
-                                      zone
-                                    ].zonautilidadPerdidaOperacional.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                    {totalsByZone[zone].utilidadoPerdidaOperacional.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                   </Typography>
                                 </div>
                                 <div style={informeStyles.textContent}>
@@ -645,9 +700,7 @@ const Actualizado = () => {
                                     Ingresos No Operacionales:
                                   </Typography>
                                   <Typography variant="caption">
-                                    {totalsByZone[
-                                      zone
-                                    ].zonaingresosNoOperacionalesTotal.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                    {totalsByZone[zone].ingresosNoOperacionalesTotal.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                   </Typography>
                                 </div>
                                 <div style={informeStyles.textContent}>
@@ -655,27 +708,15 @@ const Actualizado = () => {
                                     Gastos No Operacionales:
                                   </Typography>
                                   <Typography variant="caption">
-                                    {totalsByZone[
-                                      zone
-                                    ].zonagastosNoOperacionalesTotal.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                    {totalsByZone[zone].gastosNoOperacionalesTotal.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                   </Typography>
                                 </div>
-                                <div style={
-                                  uen == "Constructora"
-                                    ? informeStyles.titleZuConstructora
-                                    : uen == "Inmobiliaria"
-                                    ? informeStyles.titleZuInmobiliaria
-                                    : uen == "Unidades de Apoyo"
-                                    ? informeStyles.titleZuUA
-                                    : informeStyles.titleZu
-                                }>
+                                <div style={uen == "Constructora"? informeStyles.titleZuConstructora: uen == "Inmobiliaria"? informeStyles.titleZuInmobiliaria: uen == "Unidades de Apoyo"? informeStyles.titleZuUA: informeStyles.titleZu}>
                                   <Typography variant="caption">
                                     Utilidad Antes De Impuesto:
                                   </Typography>
                                   <Typography variant="caption">
-                                    {totalsByZone[
-                                      zone
-                                    ].zonautilidadAntesDeImpuesto.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                    {totalsByZone[zone].utilidadAntesDeImpuesto.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                   </Typography>
                                 </div>
                               </div>
@@ -686,27 +727,11 @@ const Actualizado = () => {
                                   ([rubroIndex, { total, subrubros }]) => {
                                     const rubro = updatedRubros[rubroIndex];
                                     return (
-                                      <div
-                                        style={{ margin: "10px" }}
-                                        key={rubroIndex}
-                                      >
+                                      <div style={{ margin: "10px" }}key={rubroIndex}>
                                         <div
-                                          style={
-                                            uen == "Constructora"
-                                              ? informeStyles.containerRConstructora
-                                              : uen == "Inmobiliaria"
-                                              ? informeStyles.containerRInmobiliaria
-                                              : uen ==
-                                                "Unidades de Apoyo"
-                                              ? informeStyles.containerRUA
-                                              : informeStyles.containerR
-                                          }
-                                        >
+                                          style={uen == "Constructora"? informeStyles.containerRConstructora: uen == "Inmobiliaria"? informeStyles.containerRInmobiliaria: uen =="Unidades de Apoyo"? informeStyles.containerRUA: informeStyles.containerR}>
                                           <Typography variant="caption" fontWeight='bold'>
-                                            {rubro
-                                              ? rubro.nombre
-                                              : "Rubro no encontrado"}
-                                            :
+                                            {rubro? rubro.nombre: "Rubro no encontrado"}:
                                           </Typography>
 
                                           {isTotalVisible && (
@@ -718,34 +743,14 @@ const Actualizado = () => {
                                         {isSubrubroVisible && (
                                           <div>
                                             {Object.entries(subrubros).map(
-                                              ([
-                                                subrubroIndex,
-                                                {
-                                                  total: subrubroTotal,
-                                                  auxiliares,
-                                                },
-                                              ]) => {
-                                                const subrubro =
-                                                  rubro.subrubros[subrubroIndex];
+                                              ([subrubroIndex, {total: subrubroTotal, auxiliares,},]) => {
+                                                const subrubro = rubro.subrubros[subrubroIndex];
                                                 return (
                                                   <div key={subrubroIndex}>
                                                     <div
-                                                        style={
-                                                          uen == "Constructora"
-                                                            ? informeStyles.containerSRConstructora
-                                                            : uen == "Inmobiliaria"
-                                                            ? informeStyles.containerSRInmobiliaria
-                                                            : uen ==
-                                                              "Unidades de Apoyo"
-                                                            ? informeStyles.containerSRUA
-                                                            : informeStyles.containerSR
-                                                        }
-                                                    >
+                                                        style={uen == "Constructora"? informeStyles.containerSRConstructora: uen == "Inmobiliaria"? informeStyles.containerSRInmobiliaria: uen =="Unidades de Apoyo"? informeStyles.containerSRUA: informeStyles.containerSR}>
                                                       <Typography variant="caption">
-                                                        {subrubro
-                                                          ? subrubro.nombre
-                                                          : "Subrubro no encontrado"}
-                                                        :
+                                                        {subrubro? subrubro.nombre: "Subrubro no encontrado"}:
                                                       </Typography>
                                                       {isTotalVisible && (
                                                         <Typography variant="caption">
@@ -765,29 +770,13 @@ const Actualizado = () => {
                                                               cuentas,
                                                             },
                                                           ]) => {
-                                                            const auxiliar =
-                                                              subrubro.auxiliares[
-                                                                auxIndex
-                                                              ];
+                                                            const auxiliar = subrubro.auxiliares[auxIndex];
                                                             return (
                                                               <div key={auxIndex}>
                                                                 <div
-                                                                  style={
-                                                                    uen == "Constructora"
-                                                                      ? informeStyles.containerAConstructora
-                                                                      : uen == "Inmobiliaria"
-                                                                      ? informeStyles.containerAInmobiliaria
-                                                                      : uen ==
-                                                                        "Unidades de Apoyo"
-                                                                      ? informeStyles.containerAUA
-                                                                      : informeStyles.containerA
-                                                                  }
-                                                                >
+                                                                  style={uen == "Constructora"? informeStyles.containerAConstructora: uen == "Inmobiliaria"? informeStyles.containerAInmobiliaria: uen =="Unidades de Apoyo"? informeStyles.containerAUA: informeStyles.containerA}>
                                                                   <Typography variant="caption">
-                                                                    {auxiliar
-                                                                      ? auxiliar.nombre
-                                                                      : "Auxiliar no encontrado"}
-                                                                    :
+                                                                    {auxiliar? auxiliar.nombre: "Auxiliar no encontrado"}:
                                                                   </Typography>
                                                                   {isTotalVisible && (
                                                                     <Typography variant="caption">
@@ -797,38 +786,12 @@ const Actualizado = () => {
                                                                 </div>
                                                                 {isCuentaVisible && (
                                                                   <div>
-                                                                    {Object.entries(
-                                                                      cuentas
-                                                                    ).map(
-                                                                      ([
-                                                                        codigo,
-                                                                        {
-                                                                          nombre,
-                                                                          total,
-                                                                        },
-                                                                      ]) => (
+                                                                    {Object.entries(cuentas).map(
+                                                                      ([codigo, {nombre, total,},]) => (
                                                                         <div
-                                                                          style={
-                                                                            uen ==
-                                                                            "Constructora"
-                                                                              ? informeStyles.containerCCConstructora
-                                                                              : uen ==
-                                                                                "Inmobiliaria"
-                                                                              ? informeStyles.containerCCInmobiliaria
-                                                                              : uen ==
-                                                                                "Unidades de Apoyo"
-                                                                              ? informeStyles.containerCCUA
-                                                                              : informeStyles.containerCC
-                                                                          }
-                                                                        >
+                                                                          style={uen =="Constructora"? informeStyles.containerCCConstructora: uen =="Inmobiliaria"? informeStyles.containerCCInmobiliaria: uen =="Unidades de Apoyo"? informeStyles.containerCCUA: informeStyles.containerCC}>
                                                                           <Typography variant="caption">
-                                                                            {
-                                                                              codigo
-                                                                            }
-                                                                            {
-                                                                              nombre
-                                                                            }
-                                                                            :
+                                                                            {codigo}{nombre}:
                                                                           </Typography>
                                                                           {isTotalVisible && (
                                                                             <Typography variant="caption">
@@ -860,7 +823,7 @@ const Actualizado = () => {
                             )}
                           </div>
                         )
-                      )}
+                      })}
                     </div>
                   );
                 })}
@@ -887,9 +850,13 @@ const Actualizado = () => {
           Año: currentYear, 
           UEN: currentUEN, 
           Zona: "", 
+          CR: "",
           Rubro: "", 
+          CS: "",
           Subrubro: "", 
+          CA: "",
           Auxiliar: "", 
+          CC: "",
           "Centro Costos": "", 
           Totales: uenTotal 
         });
@@ -902,57 +869,79 @@ const Actualizado = () => {
             Año: currentYear,
             UEN: currentUEN, 
             Zona: currentZone, 
+            CR: "", 
             Rubro: "", 
+            CS: "",
             Subrubro: "", 
+            CA: "",
             Auxiliar: "", 
+            CC: "", 
             "Centro Costos": "", 
             Totales: zoneTotal 
           });
   
           Object.entries(rubros).forEach(([rubroIndex, rubroData]) => {
             const rubroName = updatedRubros[rubroIndex]?.nombre;
-            let currentRubro = rubroName;
+            const rubroCodigo = updatedRubros[rubroIndex]?.codigo;
+            let currentRubroCodigo = rubroCodigo;
+            let currentRubroName = rubroName;
   
             // Add a row for each rubro within the zone
             formattedData.push({ 
               Año: currentYear,
               UEN: currentUEN, 
               Zona: currentZone, 
-              Rubro: currentRubro, 
-              Subrubro: "", 
+              CR: currentRubroCodigo, 
+              Rubro: currentRubroName, 
+              CS: "",
+              Subrubro: "",
+              CA: "", 
               Auxiliar: "", 
+              CC: "", 
               "Centro Costos": "", 
               Totales: rubroData.total 
             });
   
             Object.entries(rubroData.subrubros).forEach(([subrubroIndex, subrubroData]) => {
               const subrubroName = updatedRubros[rubroIndex]?.subrubros?.[subrubroIndex]?.nombre;
-              let currentSubrubro = subrubroName;
+              const subrubroCodigo = updatedRubros[rubroIndex]?.subrubros?.[subrubroIndex]?.codigo;
+              let currentSubrubroName = subrubroName;
+              let currentSubrubroCodigo = subrubroCodigo;
   
               // Add a row for each subrubro within the rubro
               formattedData.push({ 
                 Año: currentYear,
                 UEN: currentUEN, 
                 Zona: currentZone, 
-                Rubro: currentRubro, 
-                Subrubro: currentSubrubro, 
+                CR: currentRubroCodigo, 
+                Rubro: currentRubroName, 
+                CS: currentSubrubroCodigo,
+                Subrubro: currentSubrubroName, 
+                CA: "",
                 Auxiliar: "", 
+                CC: "", 
                 "Centro Costos": "", 
                 Totales: subrubroData.total 
               });
   
               Object.entries(subrubroData.auxiliares).forEach(([auxiliarIndex, auxiliarData]) => {
                 const auxiliarName = updatedRubros[rubroIndex]?.subrubros?.[subrubroIndex]?.auxiliares?.[auxiliarIndex]?.nombre;
-                let currentAuxiliar = auxiliarName;
+                const auxiliarCodigo = updatedRubros[rubroIndex]?.subrubros?.[subrubroIndex]?.auxiliares?.[auxiliarIndex]?.codigo;
+                let currentAuxiliarName = auxiliarName;
+                let currentAuxiliarCodigo = auxiliarCodigo;
   
                 // Add a row for each auxiliar within the subrubro
                 formattedData.push({ 
                   Año: currentYear,
                   UEN: currentUEN, 
                   Zona: currentZone, 
-                  Rubro: currentRubro, 
-                  Subrubro: currentSubrubro, 
-                  Auxiliar: currentAuxiliar, 
+                  CR: currentRubroCodigo,
+                  Rubro: currentRubroName, 
+                  CS: currentSubrubroCodigo,
+                  Subrubro: currentSubrubroName, 
+                  CA: currentAuxiliarCodigo,
+                  Auxiliar: currentAuxiliarName, 
+                  CC: "", 
                   "Centro Costos": "", 
                   Totales: auxiliarData.total 
                 });
@@ -963,10 +952,14 @@ const Actualizado = () => {
                     Año: currentYear,
                     UEN: currentUEN,
                     Zona: currentZone,
-                    Rubro: currentRubro,
-                    Subrubro: currentSubrubro,
-                    Auxiliar: currentAuxiliar,
-                    "Centro Costos": cuentaCodigo + ' ' + cuentaData.nombre,
+                    CR: currentRubroCodigo,
+                    Rubro: currentRubroName, 
+                    CS: currentSubrubroCodigo,
+                    Subrubro: currentSubrubroName, 
+                    CA: currentAuxiliarCodigo,
+                    Auxiliar: currentAuxiliarName, 
+                    "CC": cuentaCodigo,
+                    "Centro Costos": cuentaData.nombre,
                     Totales: cuentaData.total
                   });
                 });
@@ -981,7 +974,7 @@ const Actualizado = () => {
     });
   
     // Create a new workbook and add the data
-    const worksheet = XLSX.utils.json_to_sheet(formattedData, { header: ["Año", "UEN", "Zona", "Rubro", "Subrubro", "Auxiliar", "Centro Costos", "Totales"] });
+    const worksheet = XLSX.utils.json_to_sheet(formattedData, { header: ["Año", "UEN", "Zona", "CR", "Rubro", "CS", "Subrubro", "CA", "Auxiliar", "CC", "Centro Costos", "Totales"] });
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Informe Detallado");
   
@@ -993,92 +986,46 @@ const Actualizado = () => {
     <div style={{ display: "flex", flexDirection: "row" }}>
       <Sidebar />
       <div style={{ display: "flex", width: "100%", flexDirection: "column" }}>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "row",
-            marginBottom: "10px",
-            justifyContent: "flex-end",
-            alignItems: "center",
-          }}
-        >
+        <div style={{display: "flex",flexDirection: "row",marginBottom: "10px",justifyContent: "flex-end",alignItems: "center",}}>
            <FormGroup sx={{ display: "flex", flexDirection: "row", justifyContent: "flex-end" }}>
            
             <FormControlLabel
               key="total" // Unique key
-              control={
-                <Checkbox
-                  checked={isTotalVisible}
-                  onChange={handleTotalToggle}
-                  color="primary"
-                  style={{ marginLeft: "10px" }}
-                />
-              }
+              control={<Checkbox checked={isTotalVisible}onChange={handleTotalToggle}color="primary"style={{ marginLeft: "10px" }}/>}
               label="Ver Totales"
             />
             <FormControlLabel
               key="utilidad" // Unique key
-              control={
-                <Checkbox
-                  checked={isUtilidadVisible}
-                  onChange={handleUtilidadToggle}
-                  color="primary"
-                  style={{ marginLeft: "10px" }}
-                />
-              }
+              control={<Checkbox checked={isUtilidadVisible}onChange={handleUtilidadToggle}color="primary"style={{ marginLeft: "10px" }}/>}
               label="Ver Proyecciones De Estados"
             />
             <FormControlLabel
               key="rubro" // Unique key
-              control={
-                <Checkbox
-                  checked={isRubroVisible}
-                  onChange={() => setIsRubroVisible(!isRubroVisible)}
-                  color="primary"
-                  style={{ marginLeft: "10px" }}
-                />
-              }
+              control={<Checkbox checked={isRubroVisible}onChange={() => setIsRubroVisible(!isRubroVisible)}color="primary"style={{ marginLeft: "10px" }}/>}
               label="Ver Rubros"
             />
             <FormControlLabel
               key="subrubro" // Unique key
-              control={
-                <Checkbox
-                  checked={isSubrubroVisible}
-                  onChange={() => setIsSubrubroVisible(!isSubrubroVisible)}
-                  color="primary"
-                  style={{ marginLeft: "10px" }}
-                />
-              }
+              control={<Checkbox checked={isSubrubroVisible}onChange={() => setIsSubrubroVisible(!isSubrubroVisible)}color="primary"style={{ marginLeft: "10px" }}/>}
               label="Ver Subrubros"
             />
             <FormControlLabel
               key="auxiliar" // Unique key
-              control={
-                <Checkbox
-                  checked={isAuxiliarVisible}
-                  onChange={() => setIsAuxiliarVisible(!isAuxiliarVisible)}
-                  color="primary"
-                  style={{ marginLeft: "10px" }}
-                />
-              }
+              control={<Checkbox checked={isAuxiliarVisible}onChange={() => setIsAuxiliarVisible(!isAuxiliarVisible)}color="primary"style={{ marginLeft: "10px" }}/>}
               label="Ver Auxiliares"
             />
             <FormControlLabel
               key="cuenta" // Unique key
-              control={
-                <Checkbox
-                  checked={isCuentaVisible}
-                  onChange={() => setIsCuentaVisible(!isCuentaVisible)}
-                  color="primary"
-                  style={{ marginLeft: "10px" }}
-                />
-              }
+              control={<Checkbox checked={isCuentaVisible}onChange={() => setIsCuentaVisible(!isCuentaVisible)}color="primary"style={{ marginLeft: "10px" }}/>}
               label="Ver Cuentas"
             />
+            <FormControlLabel
+              control={<Checkbox checked={applyPercentage} onChange={handleApplyPercentageToggle} color="primary" style={{ marginLeft: "10px" }} />}
+              label="% UA"
+            />
             <Button variant="contained" color="success" onClick={exportToExcel}>
-          Exportar a Excel
-        </Button>
+              Exportar a Excel
+            </Button>
           </FormGroup>
         </div>
         

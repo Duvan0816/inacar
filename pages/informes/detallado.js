@@ -128,9 +128,10 @@ const Detallado = () => {
         }
   
         const data = await presupuestosResponse.json();
+        console.log("Data:", data);
         allData = [...allData, ...data.results]; // Concatenate new data
 
-        totalPages = Math.ceil(data.count / 2000); 
+        totalPages = Math.ceil(data.count / 3000); 
         page++; // Move to the next page
       } while (page <= totalPages);
       
@@ -281,6 +282,14 @@ const Detallado = () => {
   };
   const yearPercentages = {
     2024: {
+      nacionalConstructora: 0.4,
+      nacionalPromotora: 0.4,
+      nacionalInmobiliaria: 0.2,
+      diferenteNacionalConstructora: 0.4,
+      diferenteNacionalPromotora: 0.5,
+      diferenteNacionalInmobiliaria: 0.1,
+    },
+    2025: {
       nacionalConstructora: 0.4,
       nacionalPromotora: 0.4,
       nacionalInmobiliaria: 0.2,

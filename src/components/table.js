@@ -427,7 +427,7 @@ const CustomTable = ({
   
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
-      const ids = row[0] ? String(row[0]).trim().split("'") : [];
+      const id = row[0] ? parseInt(String(row[0]).trim()) : null; // Un único ID para todos los meses
       const rubroData = row[1] ? String(row[1]).trim().split(" ") : [];
       const rubroCodigo = rubroData[0]?.trim() || "";
       const rubroName = rubroData.slice(1).join(" ").trim();
@@ -496,7 +496,7 @@ const CustomTable = ({
           newInputValues[inputId] = {
             value: numericValue,
             centroCostoid: itemCodigo,
-            id: ids[monthIndex] ? parseInt(ids[monthIndex]) : null,
+            id: id,
           };
   
           newRubrosTotals[rubroName] = newRubrosTotals[rubroName] || Array(12).fill(0);
@@ -525,41 +525,34 @@ const CustomTable = ({
     const csrftoken = getCookie("csrftoken");
     const token = localStorage.getItem("token");
 
+    const parseInputId = (id) => {
+      const [_, basic, rubroIndex, subrubroIndex, auxiliarIndex, itemIndex, colIndex] = id.split("-");
+      return {
+          rubro: parseInt(rubroIndex),
+          subrubro: parseInt(subrubroIndex),
+          auxiliar: parseInt(auxiliarIndex),
+          item: parseInt(itemIndex),
+          meses: parseInt(colIndex),
+      };
+    };
+    
     const data = Object.keys(inputValues).map((inputId) => {
-        const [
-            _,
-            basic,
-            rubroIndex,
-            subrubroIndex,
-            auxiliarIndex,
-            itemIndex,
-            colIndex, // 'meses'
-        ] = inputId.split("-");
-
-        const inputValue = inputValues[inputId];
-        const presupuestomes = parseInt(inputValue?.value) || 0;
-
+        const parsed = parseInputId(inputId);
+        const presupuestomes = parseInt(inputValues[inputId]?.value) || 0;
+    
         return {
-            id: isNaN(parseInt(inputValue.id)) ? null : parseInt(inputValue.id),
-            cuenta: isNaN(parseInt(inputValue.centroCostoid)) ? null : parseInt(inputValue.centroCostoid),
+            id: parseInt(inputValues[inputId]?.id) || null,
+            cuenta: parseInt(inputValues[inputId]?.centroCostoid) || null,
+            ...parsed,
             usuario: userId,
             uen,
-            rubro: parseInt(rubroIndex),
-            subrubro: parseInt(subrubroIndex),
-            auxiliar: parseInt(auxiliarIndex),
-            item: parseInt(itemIndex),
             updatedRubros,
             rubrosTotals,
             monthlyTotals,
-            mesesData: [
-                {
-                    meses: parseInt(colIndex),
-                    presupuestomes: Math.round(presupuestomes),
-                },
-            ],
+            mesesData: [{ meses: parsed.meses, presupuestomes: Math.round(presupuestomes) }],
         };
     });
-
+  
     const chunkDataByCuenta = (data, minSize, maxSize) => {
       let result = [];
       let currentChunk = [];
@@ -586,7 +579,7 @@ const CustomTable = ({
   
       return result;
     };
-    const dataChunks = chunkDataByCuenta(data, 85, 96);
+    const dataChunks = chunkDataByCuenta(data, 205, 220);
     let totalUpdated = 0;
     let totalCreated = 0;
 
@@ -630,9 +623,9 @@ const CustomTable = ({
         setSnackbarOpen(true);
     } finally {
         setIsLoading(false);
-        setTimeout(() => {
-            window.location.reload();
-        }, 500);
+        // setTimeout(() => {
+        //     window.location.reload();
+        // }, 500);
     }
   };
   

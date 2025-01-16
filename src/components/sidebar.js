@@ -54,9 +54,68 @@ const Sidebar = () => {
     router.push(path);
   };
 
-  const handleLogout = () => {
-    localStorage.clear(); // Elimina cualquier otro token o dato de autenticación
-    router.push('/login'); // Redirige al usuario a la página de inicio de sesión
+  const deleteDatabase = async () => {
+    const dbName = "PresupuestoDB";
+    const tableName = "rubrosData"; // Nombre de la tabla específica
+  
+    // Paso 1: Abre la base de datos
+    const request = indexedDB.open(dbName);
+  
+    request.onsuccess = (event) => {
+      const db = event.target.result;
+  
+      // Paso 2: Elimina el contenido de la tabla específica
+      const transaction = db.transaction([tableName], "readwrite");
+      const objectStore = transaction.objectStore(tableName);
+  
+      const clearRequest = objectStore.clear();
+      clearRequest.onsuccess = () => {
+        console.log(`Tabla ${tableName} vaciada con éxito.`);
+      };
+  
+      clearRequest.onerror = (event) => {
+        console.error(`Error al vaciar la tabla ${tableName}:`, event);
+      };
+  
+      // Paso 3: Cierra la conexión
+      transaction.oncomplete = () => {
+        db.close();
+  
+        // Paso 4: Elimina toda la base de datos
+        const deleteRequest = indexedDB.deleteDatabase(dbName);
+  
+        deleteRequest.onsuccess = () => {
+          console.log(`Base de datos ${dbName} eliminada exitosamente.`);
+        };
+  
+        deleteRequest.onerror = (event) => {
+          console.error(`Error al eliminar la base de datos ${dbName}:`, event);
+        };
+  
+        deleteRequest.onblocked = () => {
+          console.warn(`La base de datos ${dbName} está bloqueada y no se puede eliminar.`);
+        };
+      };
+    };
+  
+    request.onerror = (event) => {
+      console.error(`Error al abrir la base de datos ${dbName}:`, event);
+    };
+  };
+  
+
+  const handleLogout = async () => {
+    try {
+
+      await deleteDatabase(); // Call the function to delete all data
+
+      // Clear localStorage
+      localStorage.clear();
+      router.push('/login');
+      console.log("Cierre de sesión completado correctamente.");
+    } catch (error) {
+      console.error("Error during logout:", error);
+    }
   };
 
   useEffect(() => {
