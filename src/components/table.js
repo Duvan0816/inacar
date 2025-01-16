@@ -121,16 +121,31 @@ const CustomTable = ({
     setInputValues((prevInputValues) => {
       const previousData = prevInputValues[inputId] || {};
   
-      // Ensure we get the `centroCostoid` value, fallback to localStorage if needed
-      const centroCostoidValue = previousData.centroCostoid || CentroCostoid || JSON.parse(localStorage.getItem(`${currentView}_CentroCostoid`)) || null;
+      // Buscar un inputId relacionado que coincida excepto en el último dígito (mes)
+      const relatedInputId = Object.keys(prevInputValues).find((key) => {
+        // Comparar todos los segmentos del inputId excepto el último (mes)
+        const baseInputId = key.split("-").slice(0, -1).join("-");
+        return baseInputId === inputId.split("-").slice(0, -1).join("-");
+      });
   
+      // Obtener id y centroCostoid del input relacionado
+      const relatedData = relatedInputId ? prevInputValues[relatedInputId] : {};
+      const centroCostoidValue = relatedData.centroCostoid || null;
+      const idValue = relatedData.id || null;
+  
+      // Actualizar inputValues con el nuevo valor, manteniendo id y centroCostoid
       const updatedInputValues = {
         ...prevInputValues,
         [inputId]: {
-          ...previousData, // Preserve previous data
+          ...previousData,
           value: numericValue,
-          centroCostoid: centroCostoidValue, // Ensure centroCostoid is set for new entries
-          id: previousData.id || parseInt(inputId.split("-")[3]), // Extract id from inputId if not already set
+          centroCostoid: centroCostoidValue, // Repetir centroCostoid del mes relacionado
+          id: idValue, // Repetir id del mes relacionado
+          rubro: relatedData.rubro || 0, // Mantener rubro, subrubro, auxiliar e item si están definidos
+          subrubro: relatedData.subrubro || 0,
+          auxiliar: relatedData.auxiliar || 0,
+          item: relatedData.item || 0,
+          meses: monthIndex, // Actualizar el mes actual
         },
       };
   
@@ -623,9 +638,9 @@ const CustomTable = ({
         setSnackbarOpen(true);
     } finally {
         setIsLoading(false);
-        // setTimeout(() => {
-        //     window.location.reload();
-        // }, 500);
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
     }
   };
   
