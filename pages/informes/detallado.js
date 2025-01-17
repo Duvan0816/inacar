@@ -35,6 +35,7 @@ const Detallado = () => {
     const organizedData = {};
 
     data.forEach((item) => {
+
       const year = new Date(item.fecha).getFullYear();
       const uen = item.uen;
       const zone = item.cuenta.regional;
@@ -43,11 +44,13 @@ const Detallado = () => {
       const auxiliarIndex = item.auxiliar;
       const cuentaCodigo = item.cuenta.codigo;
       const cuentaNombre = item.cuenta.nombre.trim();
-      const PresupuestoMes = item.meses_presupuesto;
+      const presupuestoMeses = item.meses_presupuesto;
+
       // Sumar todos los valores de presupuestomes en meses_presupuesto
       const totalPresupuestoMes = item.meses_presupuesto.reduce((total, mes) => {
         return total + parseFloat(mes.presupuestomes);
       }, 0);
+      
       // Initialize data structure
       if (!organizedData[year]) organizedData[year] = {};
       if (!organizedData[year][uen]) organizedData[year][uen] = { total: 0, zones: {} };
@@ -78,10 +81,16 @@ const Detallado = () => {
         cuentaAgrupada[cuentaCodigo] = {
           nombre: cuentaNombre,
           total: 0,
-          PresupuestoMes: PresupuestoMes,
+          meses_presupuesto: Array(12).fill(0),
         };
       }
       cuentaAgrupada[cuentaCodigo].total += totalPresupuestoMes;
+
+      presupuestoMeses.forEach(({ meses, presupuestomes }) => {
+        if (meses >= 0 && meses < 12) {
+          cuentaAgrupada[cuentaCodigo].meses_presupuesto[meses] += parseFloat(presupuestomes || 0);
+        }
+      });
 
       // Update subrubro and auxiliar totals regardless of exclusion
       organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex].auxiliares[auxiliarIndex].total += totalPresupuestoMes;
@@ -908,13 +917,8 @@ const Detallado = () => {
             Object.entries(rubroData.subrubros).forEach(([subrubroIndex, subrubroData]) => {
               Object.entries(subrubroData.auxiliares).forEach(([auxiliarIndex, auxiliarData]) => {
                 Object.entries(auxiliarData.cuentas).forEach(([cuentaCodigo, cuentaData]) => {
-                  // Monthly budget for this account
-                  const monthlyBudget = cuentaData.PresupuestoMes || [];
-                  const monthlyValues = Array(12).fill("").map((_, index) => 
-                    parseFloat(monthlyBudget[index]?.presupuestomes || 0)
-                  );
-  
-                  // Add a row for each cuenta within the auxiliar, including the monthly budget
+
+                  const monthlyValues = cuentaData.meses_presupuesto || [];
                   formattedData.push({
                     Año: currentYear,
                     UEN: currentUEN,
