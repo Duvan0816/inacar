@@ -43,7 +43,6 @@ const Detallado = () => {
       const auxiliarIndex = item.auxiliar;
       const cuentaCodigo = item.cuenta.codigo;
       const cuentaNombre = item.cuenta.nombre.trim();
-      const PresupuestoMes = item.meses_presupuesto;
       // Sumar todos los valores de presupuestomes en meses_presupuesto
       const totalPresupuestoMes = item.meses_presupuesto.reduce((total, mes) => {
         return total + parseFloat(mes.presupuestomes);
@@ -78,7 +77,6 @@ const Detallado = () => {
         cuentaAgrupada[cuentaCodigo] = {
           nombre: cuentaNombre,
           total: 0,
-          PresupuestoMes: PresupuestoMes,
         };
       }
       cuentaAgrupada[cuentaCodigo].total += totalPresupuestoMes;
@@ -130,6 +128,7 @@ const Detallado = () => {
         }
   
         const data = await presupuestosResponse.json();
+        console.log("Data:", data);
         allData = [...allData, ...data.results]; // Concatenate new data
 
         totalPages = Math.ceil(data.count / 3000); 
@@ -842,104 +841,126 @@ const Detallado = () => {
     // Organize the data for each UEN and its detailed structure
     Object.entries(data).forEach(([year, uens]) => {
       Object.entries(uens).forEach(([uen, { total: uenTotal, zones }]) => {
+        // Variables to keep track of the current year and UEN for each row
         let currentYear = year;
         let currentUEN = uen;
   
         // Add a row for the UEN summary
-        formattedData.push({
-          Año: currentYear,
-          UEN: currentUEN,
-          Zona: "",
+        formattedData.push({ 
+          Año: currentYear, 
+          UEN: currentUEN, 
+          Zona: "", 
           CR: "",
-          Rubro: "",
+          Rubro: "", 
           CS: "",
-          Subrubro: "",
+          Subrubro: "", 
           CA: "",
-          Auxiliar: "",
+          Auxiliar: "", 
           CC: "",
-          "Centro Costos": "",
-          Totales: uenTotal,
-          Enero: "",
-          Febrero: "",
-          Marzo: "",
-          Abril: "",
-          Mayo: "",
-          Junio: "",
-          Julio: "",
-          Agosto: "",
-          Septiembre: "",
-          Octubre: "",
-          Noviembre: "",
-          Diciembre: "",
+          "Centro Costos": "", 
+          Totales: uenTotal 
         });
   
         Object.entries(zones).forEach(([zone, { total: zoneTotal, rubros }]) => {
           let currentZone = zone;
   
           // Add a row for each zone within the UEN
-          formattedData.push({
+          formattedData.push({ 
             Año: currentYear,
-            UEN: currentUEN,
-            Zona: currentZone,
-            CR: "",
-            Rubro: "",
+            UEN: currentUEN, 
+            Zona: currentZone, 
+            CR: "", 
+            Rubro: "", 
             CS: "",
-            Subrubro: "",
+            Subrubro: "", 
             CA: "",
-            Auxiliar: "",
-            CC: "",
-            "Centro Costos": "",
-            Totales: zoneTotal,
-            Enero: "",
-            Febrero: "",
-            Marzo: "",
-            Abril: "",
-            Mayo: "",
-            Junio: "",
-            Julio: "",
-            Agosto: "",
-            Septiembre: "",
-            Octubre: "",
-            Noviembre: "",
-            Diciembre: "",
+            Auxiliar: "", 
+            CC: "", 
+            "Centro Costos": "", 
+            Totales: zoneTotal 
           });
   
           Object.entries(rubros).forEach(([rubroIndex, rubroData]) => {
-            Object.entries(rubroData.subrubros).forEach(([subrubroIndex, subrubroData]) => {
-              Object.entries(subrubroData.auxiliares).forEach(([auxiliarIndex, auxiliarData]) => {
-                Object.entries(auxiliarData.cuentas).forEach(([cuentaCodigo, cuentaData]) => {
-                  // Monthly budget for this account
-                  const monthlyBudget = cuentaData.PresupuestoMes || [];
-                  const monthlyValues = Array(12).fill("").map((_, index) => 
-                    parseFloat(monthlyBudget[index]?.presupuestomes || 0)
-                  );
+            const rubroName = updatedRubros[rubroIndex]?.nombre;
+            const rubroCodigo = updatedRubros[rubroIndex]?.codigo;
+            let currentRubroCodigo = rubroCodigo;
+            let currentRubroName = rubroName;
   
-                  // Add a row for each cuenta within the auxiliar, including the monthly budget
+            // Add a row for each rubro within the zone
+            formattedData.push({ 
+              Año: currentYear,
+              UEN: currentUEN, 
+              Zona: currentZone, 
+              CR: currentRubroCodigo, 
+              Rubro: currentRubroName, 
+              CS: "",
+              Subrubro: "",
+              CA: "", 
+              Auxiliar: "", 
+              CC: "", 
+              "Centro Costos": "", 
+              Totales: rubroData.total 
+            });
+  
+            Object.entries(rubroData.subrubros).forEach(([subrubroIndex, subrubroData]) => {
+              const subrubroName = updatedRubros[rubroIndex]?.subrubros?.[subrubroIndex]?.nombre;
+              const subrubroCodigo = updatedRubros[rubroIndex]?.subrubros?.[subrubroIndex]?.codigo;
+              let currentSubrubroName = subrubroName;
+              let currentSubrubroCodigo = subrubroCodigo;
+  
+              // Add a row for each subrubro within the rubro
+              formattedData.push({ 
+                Año: currentYear,
+                UEN: currentUEN, 
+                Zona: currentZone, 
+                CR: currentRubroCodigo, 
+                Rubro: currentRubroName, 
+                CS: currentSubrubroCodigo,
+                Subrubro: currentSubrubroName, 
+                CA: "",
+                Auxiliar: "", 
+                CC: "", 
+                "Centro Costos": "", 
+                Totales: subrubroData.total 
+              });
+  
+              Object.entries(subrubroData.auxiliares).forEach(([auxiliarIndex, auxiliarData]) => {
+                const auxiliarName = updatedRubros[rubroIndex]?.subrubros?.[subrubroIndex]?.auxiliares?.[auxiliarIndex]?.nombre;
+                const auxiliarCodigo = updatedRubros[rubroIndex]?.subrubros?.[subrubroIndex]?.auxiliares?.[auxiliarIndex]?.codigo;
+                let currentAuxiliarName = auxiliarName;
+                let currentAuxiliarCodigo = auxiliarCodigo;
+  
+                // Add a row for each auxiliar within the subrubro
+                formattedData.push({ 
+                  Año: currentYear,
+                  UEN: currentUEN, 
+                  Zona: currentZone, 
+                  CR: currentRubroCodigo,
+                  Rubro: currentRubroName, 
+                  CS: currentSubrubroCodigo,
+                  Subrubro: currentSubrubroName, 
+                  CA: currentAuxiliarCodigo,
+                  Auxiliar: currentAuxiliarName, 
+                  CC: "", 
+                  "Centro Costos": "", 
+                  Totales: auxiliarData.total 
+                });
+  
+                Object.entries(auxiliarData.cuentas).forEach(([cuentaCodigo, cuentaData]) => {
+                  // Add a row for each cuenta within the auxiliar
                   formattedData.push({
                     Año: currentYear,
                     UEN: currentUEN,
                     Zona: currentZone,
-                    CR: updatedRubros[rubroIndex]?.codigo || "",
-                    Rubro: updatedRubros[rubroIndex]?.nombre || "",
-                    CS: updatedRubros[rubroIndex]?.subrubros?.[subrubroIndex]?.codigo || "",
-                    Subrubro: updatedRubros[rubroIndex]?.subrubros?.[subrubroIndex]?.nombre || "",
-                    CA: updatedRubros[rubroIndex]?.subrubros?.[subrubroIndex]?.auxiliares?.[auxiliarIndex]?.codigo || "",
-                    Auxiliar: updatedRubros[rubroIndex]?.subrubros?.[subrubroIndex]?.auxiliares?.[auxiliarIndex]?.nombre || "",
-                    CC: cuentaCodigo,
+                    CR: currentRubroCodigo,
+                    Rubro: currentRubroName, 
+                    CS: currentSubrubroCodigo,
+                    Subrubro: currentSubrubroName, 
+                    CA: currentAuxiliarCodigo,
+                    Auxiliar: currentAuxiliarName, 
+                    "CC": cuentaCodigo,
                     "Centro Costos": cuentaData.nombre,
-                    Totales: cuentaData.total,
-                    Enero: monthlyValues[0],
-                    Febrero: monthlyValues[1],
-                    Marzo: monthlyValues[2],
-                    Abril: monthlyValues[3],
-                    Mayo: monthlyValues[4],
-                    Junio: monthlyValues[5],
-                    Julio: monthlyValues[6],
-                    Agosto: monthlyValues[7],
-                    Septiembre: monthlyValues[8],
-                    Octubre: monthlyValues[9],
-                    Noviembre: monthlyValues[10],
-                    Diciembre: monthlyValues[11],
+                    Totales: cuentaData.total
                   });
                 });
               });
@@ -953,41 +974,13 @@ const Detallado = () => {
     });
   
     // Create a new workbook and add the data
-    const worksheet = XLSX.utils.json_to_sheet(formattedData, {
-      header: [
-        "Año",
-        "UEN",
-        "Zona",
-        "CR",
-        "Rubro",
-        "CS",
-        "Subrubro",
-        "CA",
-        "Auxiliar",
-        "CC",
-        "Centro Costos",
-        "Totales",
-        "Enero",
-        "Febrero",
-        "Marzo",
-        "Abril",
-        "Mayo",
-        "Junio",
-        "Julio",
-        "Agosto",
-        "Septiembre",
-        "Octubre",
-        "Noviembre",
-        "Diciembre",
-      ],
-    });
+    const worksheet = XLSX.utils.json_to_sheet(formattedData, { header: ["Año", "UEN", "Zona", "CR", "Rubro", "CS", "Subrubro", "CA", "Auxiliar", "CC", "Centro Costos", "Totales"] });
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Informe Detallado");
   
     // Export to Excel
     XLSX.writeFile(workbook, `Informe_Detallado_${new Date().getFullYear()}.xlsx`);
-  };
-  
+  };  
 
   return (
     <div style={{ display: "flex", flexDirection: "row" }}>
