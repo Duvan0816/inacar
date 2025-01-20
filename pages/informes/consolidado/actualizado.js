@@ -51,7 +51,7 @@ const ConsolidadoActualizado = () => {
           try {
             const data = await response.json();
             allData = [...allData, ...data.results];
-            totalPages = Math.ceil(data.count / 2000);
+            totalPages = Math.ceil(data.count / 3000);
           } catch (err) {
             console.error("Failed to parse JSON:", err);
             throw new Error("Invalid JSON response");
