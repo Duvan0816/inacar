@@ -685,15 +685,33 @@ const CustomTable = ({
         };
     });
 
-    const chunkArray = (array, size) => {
-        const result = [];
-        for (let i = 0; i < array.length; i += size) {
-            result.push(array.slice(i, i + size));
-        }
-        return result;
+    const chunkDataByCuenta = (data, minSize, maxSize) => {
+      let result = [];
+      let currentChunk = [];
+      let currentCuenta = null;
+  
+      data.forEach((item) => {
+          if (currentCuenta !== item.cuenta && currentChunk.length > 0) {
+              result.push([...currentChunk]);
+              currentChunk = [];
+          }
+  
+          currentCuenta = item.cuenta;
+          currentChunk.push(item);
+  
+          if (currentChunk.length >= maxSize) {
+              result.push([...currentChunk]);
+              currentChunk = [];
+          }
+      });
+  
+      if (currentChunk.length > 0) {
+          result.push([...currentChunk]);
+      }
+  
+      return result;
     };
-
-    const dataChunks = chunkArray(data, 90);
+    const dataChunks = chunkDataByCuenta(data, 205, 220);
     let totalUpdated = 0;
     let totalCreated = 0;
 
@@ -743,6 +761,115 @@ const CustomTable = ({
     }
   };
 
+  const PresupuestoEjecutado = async () => {
+    setIsLoading(true);
+
+    const csrftoken = getCookie("csrftoken");
+    const token = localStorage.getItem("token");
+
+    const parseInputId = (id) => {
+      const [_, basic, rubroIndex, subrubroIndex, auxiliarIndex, itemIndex, colIndex] = id.split("-");
+      return {
+          rubro: parseInt(rubroIndex),
+          subrubro: parseInt(subrubroIndex),
+          auxiliar: parseInt(auxiliarIndex),
+          item: parseInt(itemIndex),
+          meses: parseInt(colIndex),
+      };
+    };
+    
+    const data = Object.keys(inputValues).map((inputId) => {
+        const parsed = parseInputId(inputId);
+        const presupuestomes = parseInt(inputValues[inputId]?.value) || 0;
+    
+        return {
+            id: parseInt(inputValues[inputId]?.id) || null,
+            cuenta: parseInt(inputValues[inputId]?.centroCostoid) || null,
+            ...parsed,
+            usuario: userId,
+            uen,
+            updatedRubros,
+            rubrosTotals,
+            monthlyTotals,
+            mesesData: [{ meses: parsed.meses, presupuestomes: Math.round(presupuestomes) }],
+        };
+    });
+  
+    const chunkDataByCuenta = (data, minSize, maxSize) => {
+      let result = [];
+      let currentChunk = [];
+      let currentCuenta = null;
+  
+      data.forEach((item) => {
+          if (currentCuenta !== item.cuenta && currentChunk.length > 0) {
+              result.push([...currentChunk]);
+              currentChunk = [];
+          }
+  
+          currentCuenta = item.cuenta;
+          currentChunk.push(item);
+  
+          if (currentChunk.length >= maxSize) {
+              result.push([...currentChunk]);
+              currentChunk = [];
+          }
+      });
+  
+      if (currentChunk.length > 0) {
+          result.push([...currentChunk]);
+      }
+  
+      return result;
+    };
+    const dataChunks = chunkDataByCuenta(data, 205, 220);
+    let totalUpdated = 0;
+    let totalCreated = 0;
+
+    try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+        for (const chunk of dataChunks) {
+            const response = await fetch(`${API_URL}/presupuestoEjecutado/batch-update/`, {
+                method: "PATCH",
+                headers: {
+                    "X-CSRFToken": csrftoken,
+                    Authorization: `Token ${token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(chunk),
+                credentials: "include",
+            });
+
+            if (!response.ok) {
+                const errorDetail = await response.text();
+                console.error("Error response:", errorDetail);
+                throw new Error(`Error en respuesta del servidor: ${response.status}`);
+            }
+
+            const result = await response.json();
+            totalUpdated += result.updated || 0;
+            totalCreated += result.created || 0;
+        }
+
+        setSnackbarMessage(`Presupuesto actualizado con éxito: ${totalUpdated} modificados, ${totalCreated} creados.`);
+        setSnackbarSeverity("success");
+        setSnackbarOpen(true);
+
+        // Limpiar datos locales
+        await deleteDataFromDB("selectedPresupuesto", SELECTED_PRESUPUESTO_KEY);
+        await deleteDataFromDB("rubrosData", RUBROS_DATA_KEY);
+    } catch (error) {
+        console.error("Error al actualizar el presupuesto:", error);
+        setSnackbarMessage("Error al actualizar el presupuesto.");
+        setSnackbarSeverity("error");
+        setSnackbarOpen(true);
+    } finally {
+        setIsLoading(false);
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
+    }
+  };
   
   return (
     <>
@@ -1082,7 +1209,7 @@ const CustomTable = ({
           key={"Ejecutado"}
           icon={<AutoStoriesIcon  />}
           tooltipTitle={"Ejecutado"}
-          // onClick={PresupuestoEjecutado}
+          onClick={PresupuestoEjecutado}
           disabled={isLoading}
         />
       </SpeedDial>
