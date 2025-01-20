@@ -13,7 +13,7 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import LoadingModal from "@/components/loading";
 import informeStyles from "../../../src/styles/informe.js";
 
-const ejecutadoConsolidado = () => {
+const EjecutadoConsolidado = () => {
   const [data, setData] = useState([]); // For the first dataset
   const [dataActual, setDataActual] = useState([]); // For the second dataset
   const [updatedRubros, setUpdatedRubros] = useState([]);
@@ -798,4 +798,4 @@ const ejecutadoConsolidado = () => {
   );
 };
 
-export default ejecutadoConsolidado;
+export default EjecutadoConsolidado;
