@@ -77,9 +77,7 @@ const EjecutadoConsolidado = () => {
       setUpdatedRubrosActualizado(actualizadoData[0]?.updatedRubros || []);
       setData(organizedProyectado);
       setDataActual(organizedActualizado);
-  
-      console.log("Organized data proyectado:", organizedProyectado);
-      console.log("Organized data actualizado:", organizedActualizado);
+
     } catch (err) {
       setError(err);
       console.error("Error al cargar los datos:", err);
@@ -431,7 +429,7 @@ const EjecutadoConsolidado = () => {
                             Proyectado
                           </Typography>
                           <Typography variant="caption"style={{ width: "25%" }}>
-                            Actualizado
+                            Ejecutado
                           </Typography>
                           <Typography variant="caption"style={{ width: "25%" }}>
                             Diferencia
