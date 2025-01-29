@@ -14,6 +14,7 @@ const Sidebar = () => {
   const [openUEN, setOpenUEN] = useState(false);
   const [openInformes, setOpenInformes] = useState(false);
   const [openConsolidado, setOpenConsolidado] = useState(false);
+  const [openGrafica, setOpenGrafica] = useState(false);
   const [openHistorial, setOpenHistorial] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [user, setUser] = useState('');
@@ -41,6 +42,10 @@ const Sidebar = () => {
   const handleConsolidadoClick = () => {
     setOpenConsolidado(!openConsolidado);
     setSelectedItem('Consolidado');
+  };
+  const handleGraficaClick = () => {
+    setOpenGrafica(!openGrafica);
+    setSelectedItem('Grafica');
   };
 
   const handleHistorialClick = () => {
@@ -230,18 +235,39 @@ const Sidebar = () => {
               </List>
             </Collapse>
 
-            <ListItem button selected={selectedItem === 'Gráficas'} onClick={() => handleItemClick('Gráficas', '/graficas')} sx={router.pathname === "/uen/constructora" ? SidebarStyle.titleItemConstructora : router.pathname === '/uen/inmobiliaria' ? SidebarStyle.titleItemInmobiliaria : router.pathname === "/uen/unidad-apoyo" ? SidebarStyle.titleItemUA : SidebarStyle.titleItem}>
+            {/* <ListItem button selected={selectedItem === 'Gráficas'} onClick={() => handleItemClick('Gráficas', '/graficas')} sx={router.pathname === "/uen/constructora" ? SidebarStyle.titleItemConstructora : router.pathname === '/uen/inmobiliaria' ? SidebarStyle.titleItemInmobiliaria : router.pathname === "/uen/unidad-apoyo" ? SidebarStyle.titleItemUA : SidebarStyle.titleItem}>
               <ListItemIcon sx={{ color: '#FFFFFF' }}>
                 <BarChartIcon />
               </ListItemIcon>
               <ListItemText primary="Gráficas" />
-            </ListItem>
-            {/* <ListItem button selected={selectedItem === 'Historial'} onClick={() => handleItemClick('Historial', '/historial')} sx={router.pathname === "/uen/constructora" ? SidebarStyle.titleItemConstructora : router.pathname === '/uen/inmobiliaria' ? SidebarStyle.titleItemInmobiliaria : router.pathname === "/uen/unidad-apoyo" ? SidebarStyle.titleItemUA : SidebarStyle.titleItem}>
-              <ListItemIcon sx={{ color: '#FFFFFF' }}>
-                <AllInbox />
-              </ListItemIcon>
-              <ListItemText primary="Historial" />
             </ListItem> */}
+            <ListItem
+              button
+              onClick={handleGraficaClick}
+              selected={selectedItem === 'Gráficas'}
+              sx={router.pathname === "/graficas" ? SidebarStyle.titleItemConstructora : router.pathname === '/uen/inmobiliaria' ? SidebarStyle.titleItemInmobiliaria : SidebarStyle.titleItem}
+            >
+              <ListItemIcon sx={{ color: '#FFFFFF' }}>
+                <BarChartIcon />
+              </ListItemIcon>
+              <ListItemText primary="Gráficas" />
+              {openGrafica ? <ExpandLess /> : <ExpandMore />}
+            </ListItem>
+            <Collapse in={openGrafica} timeout="auto" unmountOnExit>
+              <List component="div" disablePadding style={{ display: 'flex', flexDirection: 'row' }}>
+                <div>
+                  <div style={SidebarStyle.line}></div>
+                </div>
+                <div>
+                  <ListItem button selected={selectedItem === 'ActualizadoI'} onClick={() => handleItemClick('ActualizadoI', '/graficas/actualizado')} sx={router.pathname === "/uen/constructora" ? SidebarStyle.item : router.pathname === '/uen/inmobiliaria' ? SidebarStyle.itemInmobiliaria : router.pathname === "/uen/unidad-apoyo" ? SidebarStyle.itemUA : SidebarStyle.item}>
+                    <ListItemText primary="Actualizado" />
+                  </ListItem>
+                  <ListItem button selected={selectedItem === 'EjecutadoP'} onClick={() => handleItemClick('EjecutadoP', '/graficas/ejecutado')} sx={router.pathname === "/uen/constructora" ? SidebarStyle.item : router.pathname === '/uen/inmobiliaria' ? SidebarStyle.itemInmobiliaria : router.pathname === "/uen/unidad-apoyo" ? SidebarStyle.itemUA : SidebarStyle.item}>
+                    <ListItemText primary="Ejecutado" />
+                  </ListItem>
+                </div>
+              </List>
+            </Collapse>
             <ListItem
               button
               onClick={handleHistorialClick}

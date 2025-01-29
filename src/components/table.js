@@ -130,7 +130,7 @@ const CustomTable = ({
   
       // Obtener id y centroCostoid del input relacionado
       const relatedData = relatedInputId ? prevInputValues[relatedInputId] : {};
-      const centroCostoidValue = relatedData.centroCostoid || null;
+      const centroCostoidValue = relatedData.centroCostoid || CentroCostoid;
       const idValue = relatedData.id || null;
   
       // Actualizar inputValues con el nuevo valor, manteniendo id y centroCostoid
@@ -204,7 +204,7 @@ const CustomTable = ({
     if (auxiliar) {
       // Add new item to the list of items
       const itemsArray = auxiliar.items || [];
-      itemsArray.push({ nombre: newItem, centroCostoid: CentroCostoid });
+      itemsArray.push({ nombre: newItem,  });
       auxiliar.items = itemsArray;
 
       const updatedRubrosCopy = [...updatedRubros];
@@ -567,7 +567,7 @@ const CustomTable = ({
             mesesData: [{ meses: parsed.meses, presupuestomes: Math.round(presupuestomes) }],
         };
     });
-  
+
     const chunkDataByCuenta = (data, minSize, maxSize) => {
       let result = [];
       let currentChunk = [];

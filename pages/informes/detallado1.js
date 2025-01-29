@@ -1042,3 +1042,9 @@ const Detallado = () => {
 };
 
 export default Detallado;
+// const ejecutadoHistorial = () => {
+//     return (
+//         <div>Ejecutado historial</div>
+//     )
+// }
+// export default ejecutadoHistorial
