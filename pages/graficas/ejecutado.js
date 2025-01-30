@@ -144,8 +144,8 @@ const GraficaEjecutado = () => {
             setSubrubroChartData(generateSubrubroChartData());
         } else {
             // When no UEN filter is applied, show the combined data for all UENs
-            setRubroChartData(generateCombinedRubroChartData());
-            setSubrubroChartData(generateCombinedSubrubroChartData());
+            setCombinedRubroChartData(generateCombinedRubroChartData());
+            setCombinedSubrubroChartData(generateCombinedSubrubroChartData());
         }
     }, [uenFilter, rubroFilter]);
 
@@ -296,11 +296,31 @@ const GraficaEjecutado = () => {
         ];
         
         Object.entries(data).forEach(([year, uens]) => {
+
+            const yearPercentages = {
+                2025: {
+                  nacionalConstructora: 0.4,
+                  nacionalPromotora: 0.4,
+                  nacionalInmobiliaria: 0.2,
+                  diferenteNacionalConstructora: 0.4,
+                  diferenteNacionalPromotora: 0.5,
+                  diferenteNacionalInmobiliaria: 0.1,
+                },
+            };
+
+            const percentages = yearPercentages[year] || {};
+
+            const aplicarPorcentaje = (nacionalShare, rubrosData, tipo) => {
+                Object.entries(nacionalShare).forEach(([rubroIndex, rubroData]) => {
+                    const index = Number(rubroIndex);
+                    if (!rubrosData[index]) return;
+                    rubrosData[index].total += rubroData.total;
+                });
+            };
+
+            const actualizedYearData = dataActual[year] || {};
             const combinedRubrosActualizado = {};
             const combinedRubrosProyectado = {};
-            const actualizedYearData = dataActual[year] || {};
-            let costosVentaTotalProyectado = 0;
-            let costosVentaTotalActualizado = 0;
     
             // **Recorrer cada UEN y sus zonas para combinar los datos**
             Object.values(uens).forEach((uenData) => {
@@ -314,7 +334,32 @@ const GraficaEjecutado = () => {
                     });
                 });
             });
+
+            // Obtener datos de Unidades de Apoyo
+            const apoyoTotalZonas = uens["Unidades de Apoyo"]?.zones || {};
+            const nacionalTotalsProyectado = apoyoTotalZonas.Nacional?.rubros || {};
+            const exceptonacionalZoneTotalsProyectado = Object.fromEntries(
+                Object.entries(apoyoTotalZonas).filter(([zones]) => zones !== "Nacional")
+            );
+
+            const nacionalShareConstructoraProyectado = calculateShareNacional(nacionalTotalsProyectado, percentages.nacionalConstructora);
+            const nacionalSharePromotoraProyectado = calculateShareNacional(nacionalTotalsProyectado, percentages.nacionalPromotora);
+            const nacionalShareInmobiliariaProyectado = calculateShareNacional(nacionalTotalsProyectado, percentages.nacionalInmobiliaria);
+
+            // Aplicar porcentaje de Unidades de Apoyo a la UEN filtrada
+            aplicarPorcentaje(nacionalShareConstructoraProyectado, combinedRubrosProyectado);
+            aplicarPorcentaje(nacionalSharePromotoraProyectado, combinedRubrosProyectado);
+            aplicarPorcentaje(nacionalShareInmobiliariaProyectado, combinedRubrosProyectado);
+
+            // Aplicar distribución de otras zonas
+            const otherZonesShareConstructoraProyectado = calculateShareExceptoNacional(exceptonacionalZoneTotalsProyectado, percentages.diferenteNacionalConstructora);
+            const otherZonesSharePromotoraProyectado = calculateShareExceptoNacional(exceptonacionalZoneTotalsProyectado, percentages.diferenteNacionalPromotora);
+            const otherZonesShareInmobiliariaProyectado = calculateShareExceptoNacional(exceptonacionalZoneTotalsProyectado, percentages.diferenteNacionalInmobiliaria);
     
+            aplicarPorcentaje(otherZonesShareConstructoraProyectado, combinedRubrosProyectado);
+            aplicarPorcentaje(otherZonesSharePromotoraProyectado, combinedRubrosProyectado);
+            aplicarPorcentaje(otherZonesShareInmobiliariaProyectado, combinedRubrosProyectado);
+
             Object.values(actualizedYearData).forEach((uenData) => {
                 const zonasActualizadas = uenData.zones || {};
                 Object.values(zonasActualizadas).forEach(({ rubros }) => {
@@ -326,7 +371,59 @@ const GraficaEjecutado = () => {
                     });
                 });
             });
+
+            const apoyoTotalZonasActualizadas = dataActual?.[year]?.["Unidades de Apoyo"]?.zones || {};
+            const nacionalTotalsActualizadas = apoyoTotalZonasActualizadas.Nacional?.rubros || {};
+            const exceptonacionalZoneTotalsActualizadas = Object.fromEntries(
+                Object.entries(apoyoTotalZonasActualizadas).filter(([zones]) => zones !== "Nacional")
+            );   
+
+            // Aplicar distribución de la zona nacional
+            const nacionalShareConstructoraActualizadas = calculateShareNacional(nacionalTotalsActualizadas, percentages.nacionalConstructora);
+            const nacionalSharePromotoraActualizadas = calculateShareNacional(nacionalTotalsActualizadas, percentages.nacionalPromotora);
+            const nacionalShareInmobiliariaActualizadas = calculateShareNacional(nacionalTotalsActualizadas, percentages.nacionalInmobiliaria);
+
+            // Aplicar porcentaje de Unidades de Apoyo
+            aplicarPorcentaje(nacionalShareConstructoraActualizadas, combinedRubrosActualizado);
+            aplicarPorcentaje(nacionalSharePromotoraActualizadas, combinedRubrosActualizado);
+            aplicarPorcentaje(nacionalShareInmobiliariaActualizadas, combinedRubrosActualizado);
+
+            // Aplicar distribución de otras zonas
+            const otherZonesShareConstructoraActualizadas = calculateShareExceptoNacional(exceptonacionalZoneTotalsActualizadas, percentages.diferenteNacionalConstructora);
+            const otherZonesSharePromotoraActualizadas = calculateShareExceptoNacional(exceptonacionalZoneTotalsActualizadas, percentages.diferenteNacionalPromotora);
+            const otherZonesShareInmobiliariaActualizadas = calculateShareExceptoNacional(exceptonacionalZoneTotalsActualizadas, percentages.diferenteNacionalInmobiliaria);
     
+            // Aplicar porcentaje de Unidades de Apoyo
+            aplicarPorcentaje(otherZonesShareConstructoraActualizadas, combinedRubrosActualizado);
+            aplicarPorcentaje(otherZonesSharePromotoraActualizadas, combinedRubrosActualizado);
+            aplicarPorcentaje(otherZonesShareInmobiliariaActualizadas, combinedRubrosActualizado);
+
+            // Función para distribuir valores de otras zonas
+            function calculateShareNacional(totals, percentage) {
+                return Object.entries(totals).reduce((acc, [zone, data]) => {
+                    acc[zone] = { total: (data.total || 0) * percentage };
+                    return acc;
+                }, {});
+            }
+
+            // Función para distribuir valores de otras zonas a los rubros
+            function calculateShareExceptoNacional(totals, percentage) {
+                let sharedRubros = {};
+
+                Object.entries(totals).forEach(([zone, zoneData]) => {
+                    Object.entries(zoneData.rubros || {}).forEach(([rubroIndex, rubroData]) => {
+                        if (!sharedRubros[rubroIndex]) {
+                            sharedRubros[rubroIndex] = { total: 0 };
+                        }
+                        sharedRubros[rubroIndex].total += (rubroData.total || 0) * percentage;
+                    });
+                });
+
+                return sharedRubros;
+            }
+
+            let costosVentaTotalProyectado = 0;
+            let costosVentaTotalActualizado = 0;
             // **Calcular totales**
             const proyectadoTotals = calculateTotalsProyectado(combinedRubrosProyectado);
             const actualizadoTotals = calculateTotalsActualizado(combinedRubrosActualizado);
@@ -448,8 +545,8 @@ const GraficaEjecutado = () => {
 
     const generateRubroChartData = () => {
         const chartData = [];
-
-        // Define el orden personalizado de las categorías
+        if (!uenFilter || !data) return chartData;
+    
         const categoriaOrder = [
             "INGRESOS OPERACIONALES",
             "COSTOS DE VENTA",
@@ -461,54 +558,79 @@ const GraficaEjecutado = () => {
         ];
     
         Object.entries(data).forEach(([year, uens]) => {
+            if (!uens[uenFilter]) return;
+    
+            // Definir porcentajes por año
+            const yearPercentages = {
+                2025: {
+                    nacionalConstructora: 0.4,
+                    nacionalPromotora: 0.4,
+                    nacionalInmobiliaria: 0.2,
+                    diferenteNacionalConstructora: 0.4,
+                    diferenteNacionalPromotora: 0.5,
+                    diferenteNacionalInmobiliaria: 0.1,
+                }
+            };
 
-            if (!uenFilter || !uens[uenFilter]) return;
-            // const yearPercentages = {
-            //     2025: {
-            //       nacionalConstructora: 0.4,
-            //       nacionalPromotora: 0.4,
-            //       nacionalInmobiliaria: 0.2,
-            //       diferenteNacionalConstructora: 0.4,
-            //       diferenteNacionalPromotora: 0.5,
-            //       diferenteNacionalInmobiliaria: 0.1,
-            //     },
-            // };
-            // // Obtener porcentajes para el año actual
-            // const percentages = yearPercentages[year] || {};
+            const percentages = yearPercentages[year] || {};
 
-            // const apoyoTotalZonas = uens["Unidades de Apoyo"]?.zones || 0;
-            // console.log(apoyoTotalZonas)
-            // const nacionalTotalsFinal = apoyoTotalZonas.Nacional.rubros || {};
-            // const exceptonacionalZoneTotalsFinal = Object.fromEntries(
-            //   Object.entries(apoyoTotalZonas).filter(([zones]) => zones !== "Nacional")
-            // );
-            // console.log(nacionalTotalsFinal, exceptonacionalZoneTotalsFinal)
-            // // Distribuir los totales de "Nacional"
-            // const nacionalShareConstructoraFinal = calculateShareNacional(nacionalTotalsFinal, percentages.nacionalConstructora);
-            // const nacionalSharePromotoraFinal = calculateShareNacional(nacionalTotalsFinal, percentages.nacionalPromotora);
-            // const nacionalShareInmobiliariaFinal = calculateShareNacional(nacionalTotalsFinal, percentages.nacionalInmobiliaria);
-            // // Distribuir los totales de las demás zonas
-            // const otherZonesShareConstructoraFinal = calculateShareExceptoNacional(exceptonacionalZoneTotalsFinal, percentages.diferenteNacionalConstructora);
-            // const otherZonesSharePromotoraFinal = calculateShareExceptoNacional(exceptonacionalZoneTotalsFinal, percentages.diferenteNacionalPromotora);
-            // const otherZonesShareInmobiliariaFinal = calculateShareExceptoNacional(exceptonacionalZoneTotalsFinal, percentages.diferenteNacionalInmobiliaria);
-            // console.log(nacionalShareConstructoraFinal, nacionalSharePromotoraFinal, nacionalShareInmobiliariaFinal)
-
-            // Acceder a las zonas dentro del UEN seleccionado
-            const zonas = uens[uenFilter]?.zones || {};
+            const aplicarPorcentaje = (nacionalShare, rubrosData, tipo) => {
+                Object.entries(nacionalShare).forEach(([rubroIndex, rubroData]) => {
+                    const index = Number(rubroIndex);
+                    if (!rubrosData[index]) return;
+                    rubrosData[index].total += rubroData.total;
+                });
+            };
+    
+            // Obtener datos de la UEN seleccionada
+            const zonasProyectadas = uens[uenFilter]?.zones || {};
             const zonasActualizadas = dataActual?.[year]?.[uenFilter]?.zones || {};
-
             let rubrosDataProyectado = {};
             let rubrosDataActualizado = {};
-
-            // Recorrer cada zona para combinar los rubros
-            Object.entries(zonas).forEach(([zona, { rubros }]) => {
+    
+            // Combinar rubros de zonas proyectadas
+            Object.entries(zonasProyectadas).forEach(([zona, { rubros }]) => {
                 Object.entries(rubros).forEach(([rubroIndex, rubroData]) => {
                     rubrosDataProyectado[rubroIndex] = {
                         total: (rubrosDataProyectado[rubroIndex]?.total || 0) + rubroData.total,
                     };
                 });
             });
-            console.log(rubrosDataProyectado)
+
+            // Obtener datos de Unidades de Apoyo
+            const apoyoTotalZonas = uens["Unidades de Apoyo"]?.zones || {};
+            const nacionalTotalsProyectado = apoyoTotalZonas.Nacional?.rubros || {};
+            const exceptonacionalZoneTotalsProyectado = Object.fromEntries(
+                Object.entries(apoyoTotalZonas).filter(([zones]) => zones !== "Nacional")
+            );
+
+            const nacionalShareConstructoraProyectado = calculateShareNacional(nacionalTotalsProyectado, percentages.nacionalConstructora);
+            const nacionalSharePromotoraProyectado = calculateShareNacional(nacionalTotalsProyectado, percentages.nacionalPromotora);
+            const nacionalShareInmobiliariaProyectado = calculateShareNacional(nacionalTotalsProyectado, percentages.nacionalInmobiliaria);
+    
+            // Aplicar porcentaje de Unidades de Apoyo a la UEN filtrada
+            if (uenFilter.includes("Constructora")) {
+                aplicarPorcentaje(nacionalShareConstructoraProyectado, rubrosDataProyectado);
+            } else if (uenFilter.includes("Promotora")) {
+                aplicarPorcentaje(nacionalSharePromotoraProyectado, rubrosDataProyectado);
+            } else if (uenFilter.includes("Inmobiliaria")) {
+                aplicarPorcentaje(nacionalShareInmobiliariaProyectado, rubrosDataProyectado);
+            }
+
+            // Aplicar distribución de otras zonas
+            const otherZonesShareConstructoraProyectado = calculateShareExceptoNacional(exceptonacionalZoneTotalsProyectado, percentages.diferenteNacionalConstructora);
+            const otherZonesSharePromotoraProyectado = calculateShareExceptoNacional(exceptonacionalZoneTotalsProyectado, percentages.diferenteNacionalPromotora);
+            const otherZonesShareInmobiliariaProyectado = calculateShareExceptoNacional(exceptonacionalZoneTotalsProyectado, percentages.diferenteNacionalInmobiliaria);
+    
+            if (uenFilter.includes("Constructora")) {
+                aplicarPorcentaje(otherZonesShareConstructoraProyectado, rubrosDataProyectado);
+            } else if (uenFilter.includes("Promotora")) {
+                aplicarPorcentaje(otherZonesSharePromotoraProyectado, rubrosDataProyectado);
+            } else if (uenFilter.includes("Inmobiliaria")) {
+                aplicarPorcentaje(otherZonesShareInmobiliariaProyectado, rubrosDataProyectado);
+            }
+
+            // Combinar rubros de zonas actualizadas
             Object.entries(zonasActualizadas).forEach(([zona, { rubros }]) => {
                 Object.entries(rubros).forEach(([rubroIndex, rubroData]) => {
                     rubrosDataActualizado[rubroIndex] = {
@@ -517,6 +639,37 @@ const GraficaEjecutado = () => {
                 });
             });
 
+            const apoyoTotalZonasActualizadas = dataActual?.[year]?.["Unidades de Apoyo"]?.zones || {};
+            const nacionalTotalsActualizadas = apoyoTotalZonasActualizadas.Nacional?.rubros || {};
+            const exceptonacionalZoneTotalsActualizadas = Object.fromEntries(
+                Object.entries(apoyoTotalZonasActualizadas).filter(([zones]) => zones !== "Nacional")
+            );   
+
+            const nacionalShareConstructoraActualizadas = calculateShareNacional(nacionalTotalsActualizadas, percentages.nacionalConstructora);
+            const nacionalSharePromotoraActualizadas = calculateShareNacional(nacionalTotalsActualizadas, percentages.nacionalPromotora);
+            const nacionalShareInmobiliariaActualizadas = calculateShareNacional(nacionalTotalsActualizadas, percentages.nacionalInmobiliaria);
+    
+            // Aplicar porcentaje de Unidades de Apoyo a la UEN filtrada
+            if (uenFilter.includes("Constructora")) {
+                aplicarPorcentaje(nacionalShareConstructoraActualizadas, rubrosDataActualizado);
+            } else if (uenFilter.includes("Promotora")) {
+                aplicarPorcentaje(nacionalSharePromotoraActualizadas, rubrosDataActualizado);
+            } else if (uenFilter.includes("Inmobiliaria")) {
+                aplicarPorcentaje(nacionalShareInmobiliariaActualizadas, rubrosDataActualizado);
+            }
+            // Aplicar distribución de otras zonas
+            const otherZonesShareConstructoraActualizadas = calculateShareExceptoNacional(exceptonacionalZoneTotalsActualizadas, percentages.diferenteNacionalConstructora);
+            const otherZonesSharePromotoraActualizadas = calculateShareExceptoNacional(exceptonacionalZoneTotalsActualizadas, percentages.diferenteNacionalPromotora);
+            const otherZonesShareInmobiliariaActualizadas = calculateShareExceptoNacional(exceptonacionalZoneTotalsActualizadas, percentages.diferenteNacionalInmobiliaria);
+    
+            if (uenFilter.includes("Constructora")) {
+                aplicarPorcentaje(otherZonesShareConstructoraActualizadas, rubrosDataActualizado);
+            } else if (uenFilter.includes("Promotora")) {
+                aplicarPorcentaje(otherZonesSharePromotoraActualizadas, rubrosDataActualizado);
+            } else if (uenFilter.includes("Inmobiliaria")) {
+                aplicarPorcentaje(otherZonesShareInmobiliariaActualizadas, rubrosDataActualizado);
+            }
+
             // Función para distribuir valores de otras zonas
             function calculateShareNacional(totals, percentage) {
                 return Object.entries(totals).reduce((acc, [zone, data]) => {
@@ -524,14 +677,23 @@ const GraficaEjecutado = () => {
                     return acc;
                 }, {});
             }
-            // Función para distribuir valores de otras zonas
-            function calculateShareExceptoNacional(totals, percentage) {
-                return Object.entries(totals).reduce((acc, [zone, data]) => {
-                    acc[zone] = { total: (data.total || 0) * percentage };
-                    return acc;
-                }, {});
-            }
 
+            // Función para distribuir valores de otras zonas a los rubros
+            function calculateShareExceptoNacional(totals, percentage) {
+                let sharedRubros = {};
+
+                Object.entries(totals).forEach(([zone, zoneData]) => {
+                    Object.entries(zoneData.rubros || {}).forEach(([rubroIndex, rubroData]) => {
+                        if (!sharedRubros[rubroIndex]) {
+                            sharedRubros[rubroIndex] = { total: 0 };
+                        }
+                        sharedRubros[rubroIndex].total += (rubroData.total || 0) * percentage;
+                    });
+                });
+
+                return sharedRubros;
+            }
+            
             let costosVentaTotalProyectado = 0;
             let costosVentaTotalActualizado = 0;
     
@@ -809,7 +971,7 @@ const GraficaEjecutado = () => {
                         ) : (
                             <>
                                 {/* Si NO hay UEN seleccionado, muestra CombinedrubroChartData */}
-                                {renderBarChart(rubroChartData)}
+                                {renderBarChart(CombinedrubroChartData)}
     
                                 {/* Filtro por Rubro */}
                                 <div style={{ margin: "20px 0", textAlign: "center" }}>
@@ -825,7 +987,7 @@ const GraficaEjecutado = () => {
                                 </div>
     
                                 {/* Si hay Rubro seleccionado, muestra CombinedsubrubroChartData */}
-                                {rubroFilter && renderBarChart(subrubroChartData, "Gráfica por Rubro")}
+                                {rubroFilter && renderBarChart(CombinedsubrubroChartData, "Gráfica por Rubro")}
                             </>
                         )}
                     </>
