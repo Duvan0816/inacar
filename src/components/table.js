@@ -50,7 +50,7 @@ const CustomTable = ({
   isLoading,
   setIsLoading,
 }) => {
-  const [opens, setOpens] = useState(false); // Controla si el Snackbar está abierto
+  const [opens, setOpens] = useState(false);
   const [message, setMessage] = useState("");
   const [open, setOpen] = useState(false);
   const [selectedRubro, setSelectedRubro] = useState("");
@@ -71,7 +71,6 @@ const CustomTable = ({
   const [selectedSubrubroIndex, setSelectedSubrubroIndex] = useState(null);
   const [selectedAuxiliarIndex, setSelectedAuxiliarIndex] = useState(null);
   const currentView = router.pathname.split("/")[2];
-  const SELECTED_PRESUPUESTO_KEY = `${currentView}_selectedPresupuesto`;
   const RUBROS_DATA_KEY = `${currentView}_rubrosData`;
 
   const handleCloseSnackbar = () => {
@@ -224,66 +223,64 @@ const CustomTable = ({
     }
   };
 
-  const handleRemoveItem = async (
-    rubroIndex,
-    subrubroIndex,
-    auxiliarIndex,
-    itemIndex
-  ) => {
+  const handleRemoveItem = async (rubroIndex, subrubroIndex, auxiliarIndex, itemIndex) => {
+    console.log("Iniciando eliminación del item...");
+
+    // Validar que los índices existen antes de acceder
+    if (
+      !updatedRubros[rubroIndex] ||
+      !updatedRubros[rubroIndex].subrubros[subrubroIndex] ||
+      !updatedRubros[rubroIndex].subrubros[subrubroIndex].auxiliares[auxiliarIndex]
+    ) {
+      console.error("Error: Índices inválidos. Verifica los datos.");
+      return;
+    }
+
     const updatedRubrosCopy = [...updatedRubros];
-    const data = Object.keys(inputValues).map((inputId) => {
-      const inputValue1 = inputValues[inputId];
-      return {
-        id: parseInt(inputValue1.id),
-      };
+    const auxiliar = updatedRubrosCopy[rubroIndex]?.subrubros[subrubroIndex]?.auxiliares[auxiliarIndex];
+
+    if (!auxiliar) {
+      console.error("Error: Auxiliar no encontrado");
+      return;
+    }
+
+    const itemValue = auxiliar.items[itemIndex];
+    if (!itemValue) {
+      console.error("Error: Item no encontrado");
+      return;
+    }
+
+    const newMonthlyTotals = [ ...monthlyTotals] ;
+    const newRubrosTotals = { ...rubrosTotals };
+
+    // Obtener IDs únicos de los meses relacionados con el item
+    const idsSet = new Set();
+    MONTHS.forEach((_, monthIndex) => {
+      const inputId = `outlined-basic-${rubroIndex}-${subrubroIndex}-${auxiliarIndex}-${itemIndex}-${monthIndex}`;
+      const value = parseFloat(inputValues[inputId]?.value) || 0;
+
+      newMonthlyTotals[monthIndex] -= value;
+
+      if (newRubrosTotals[updatedRubrosCopy[rubroIndex].nombre]) {
+        newRubrosTotals[updatedRubrosCopy[rubroIndex].nombre][monthIndex] -=
+          value;
+      }
+      const itemData = inputValues[inputId];
+      if (itemData?.id) idsSet.add(parseInt(itemData.id));
     });
 
-    // Get the auxiliar and remove the item
-    const auxiliar =
-      updatedRubrosCopy[rubroIndex].subrubros[subrubroIndex].auxiliares[
-        auxiliarIndex
-      ];
-    const itemValue = auxiliar.items[itemIndex];
+    const data = Array.from(idsSet).map((id) => ({ id }));
 
-    if (itemValue) {
-      auxiliar.items.splice(itemIndex, 1); // Remove the item
+    if (data.length === 0) {
+      console.error("Error: No hay IDs válidos para eliminar.");
+      return;
+    }
 
-      const updatedInputValues = { ...inputValues };
-      const newMonthlyTotals = [...monthlyTotals];
-      const newRubrosTotals = { ...rubrosTotals };
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    const csrftoken = getCookie("csrftoken");
+    const token = localStorage.getItem("token");
 
-      // Update inputValues, monthly totals, and rubros totals
-      MONTHS.forEach((_, monthIndex) => {
-        const inputId = `outlined-basic-${rubroIndex}-${subrubroIndex}-${auxiliarIndex}-${itemIndex}-${monthIndex}`;
-        const value = parseFloat(updatedInputValues[inputId]?.value) || 0;
-
-        newMonthlyTotals[monthIndex] -= value;
-
-        if (newRubrosTotals[updatedRubrosCopy[rubroIndex].nombre]) {
-          newRubrosTotals[updatedRubrosCopy[rubroIndex].nombre][monthIndex] -=
-            value;
-        }
-
-        // Clean up inputValues if the item is deleted
-        if (inputId in updatedInputValues) {
-          delete updatedInputValues[inputId];
-        }
-      });
-
-      // Check if all monthly totals for the rubro are zero and delete if so
-      if (
-        newRubrosTotals[updatedRubrosCopy[rubroIndex].nombre]?.every(
-          (val) => val === 0
-        )
-      ) {
-        delete newRubrosTotals[updatedRubrosCopy[rubroIndex].nombre];
-      }
-
-      // Send API request to delete the item
-      const API_URL =
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const csrftoken = getCookie("csrftoken");
-      const token = localStorage.getItem("token");
+    try {
       const response = await fetch(`${API_URL}/presupuestos/batch-delete/`, {
         method: "DELETE",
         headers: {
@@ -291,28 +288,80 @@ const CustomTable = ({
           "Content-Type": "application/json",
           Authorization: `Token ${token}`,
         },
-        body: JSON.stringify(data), // Sending just the deleted item's ID
+        body: JSON.stringify(data),
       });
 
-      await deleteDataFromDB("selectedPresupuesto", SELECTED_PRESUPUESTO_KEY);
-      await deleteDataFromDB("rubrosData", RUBROS_DATA_KEY);
+      const result = await response.json();
 
-      if (response.ok) {
-        setSnackbarMessage(`Presupuesto eliminado exitosamente.`);
-        setSnackbarSeverity("success");
-        setSnackbarOpen(true);
-
-        setUpdatedRubros(updatedRubrosCopy);
-        setInputValues(updatedInputValues);
-        setMonthlyTotals(newMonthlyTotals);
-        setRubrosTotals(newRubrosTotals);
-      } else {
-        console.error("Error al eliminar el ítem");
+      if (!response.ok) {
+        console.error("Error en la eliminación:", result.error);
+        return;
       }
-    } else {
-      console.error("Item no encontrado");
+
+      // **Eliminar el item en React**
+      auxiliar.items.splice(itemIndex, 1);
+
+      // **Verificar que aux.items sigue siendo un array antes de hacer `.map()`**
+      if (!Array.isArray(auxiliar.items)) {
+        console.error("Error: aux.items dejó de ser un array después de la eliminación", auxiliar);
+        return;
+      }
+
+      // **Actualizar inputValues**
+      const updatedInputValues = { ...inputValues };
+
+      // **Reindexar los items del auxiliar después de la eliminación**
+      updatedRubrosCopy.forEach((rubro, rIndex) => {
+        if (rIndex === rubroIndex) {
+          rubro?.subrubros?.forEach((subrubro, sIndex) => {
+            if (sIndex === subrubroIndex) {
+              subrubro?.auxiliares?.forEach((aux, aIndex) => {
+                if (aIndex === auxiliarIndex) {
+                  aux?.items?.forEach((item, iIndex) => {
+                    if (iIndex >= itemIndex) {
+                      MONTHS.forEach((_, mIndex) => {
+                        const oldInputId = `outlined-basic-${rIndex}-${sIndex}-${aIndex}-${iIndex + 1}-${mIndex}`;
+                        const newInputId = `outlined-basic-${rIndex}-${sIndex}-${aIndex}-${iIndex}-${mIndex}`;
+
+                        if (inputValues[oldInputId]) {
+
+                          // **Reasignar los valores de los inputs correctamente**
+                          updatedInputValues[newInputId] = { ...inputValues[oldInputId] };
+                        }
+                      });
+                    }
+                  });
+                }
+              });
+            }
+          });
+        }
+      });
+
+      // **Si el rubro tiene solo ceros, eliminarlo**
+      if (newRubrosTotals[updatedRubrosCopy[rubroIndex]?.nombre]?.every((val) => val === 0)) {
+        delete newRubrosTotals[updatedRubrosCopy[rubroIndex]?.nombre];
+      }
+
+      // **Forzar re-renderizado con valores corregidos**
+      setUpdatedRubros([...updatedRubrosCopy]);
+      setInputValues(updatedInputValues);
+      setMonthlyTotals(newMonthlyTotals);
+      setRubrosTotals(newRubrosTotals);
+
+      // **Manejar error de IndexedDB si no existe el store**
+      try {
+        await deleteDataFromDB("rubrosData", RUBROS_DATA_KEY);
+      } catch (error) {
+        console.warn("IndexedDB error (posiblemente el store no existe):", error);
+      }
+
+      console.log("Eliminación completada correctamente.");
+    } catch (error) {
+      console.error("Error al eliminar el presupuesto:", error);
     }
   };
+
 
   const calculateAnnualTotal = (totals) => {
     return totals.reduce((acc, curr) => acc + Math.round(parseFloat(curr) || 0), 0);
@@ -412,7 +461,6 @@ const CustomTable = ({
     XLSX.writeFile(wb, `${uen}.xlsx`);
   
     setTimeout(async () => {
-      await deleteDataFromDB("selectedPresupuesto", SELECTED_PRESUPUESTO_KEY);
       await deleteDataFromDB("rubrosData", RUBROS_DATA_KEY);
       window.location.reload();
     }, 500);
@@ -629,7 +677,6 @@ const CustomTable = ({
         setSnackbarOpen(true);
 
         // Limpiar datos locales
-        await deleteDataFromDB("selectedPresupuesto", SELECTED_PRESUPUESTO_KEY);
         await deleteDataFromDB("rubrosData", RUBROS_DATA_KEY);
     } catch (error) {
         console.error("Error al actualizar el presupuesto:", error);
@@ -746,7 +793,6 @@ const CustomTable = ({
         setSnackbarOpen(true);
 
         // Limpiar datos locales
-        await deleteDataFromDB("selectedPresupuesto", SELECTED_PRESUPUESTO_KEY);
         await deleteDataFromDB("rubrosData", RUBROS_DATA_KEY);
     } catch (error) {
         console.error("Error al actualizar el presupuesto:", error);
@@ -856,7 +902,6 @@ const CustomTable = ({
         setSnackbarOpen(true);
 
         // Limpiar datos locales
-        await deleteDataFromDB("selectedPresupuesto", SELECTED_PRESUPUESTO_KEY);
         await deleteDataFromDB("rubrosData", RUBROS_DATA_KEY);
     } catch (error) {
         console.error("Error al actualizar el presupuesto:", error);

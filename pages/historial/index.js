@@ -1,4 +1,3 @@
-//index.js
 import Sidebar from "@/components/sidebar";
 import CardStorage from "@/components/cardStorage";
 import { useEffect, useState } from "react";
@@ -20,31 +19,34 @@ const Storage = () => {
 
   const initDB = async () => {
     if (dbInstance) return dbInstance;
-    dbInstance = await openDB("PresupuestoDB");
-    const newVersion = dbInstance.version + 1;
-    dbInstance.close();
-    dbInstance = await openDB("PresupuestoDB", newVersion, {
+    indexedDB.deleteDatabase("PresupuestoDB");
+
+    dbInstance = await openDB("PresupuestoDB", 1, {
       upgrade(db) {
         if (!db.objectStoreNames.contains("rubrosData")) {
           db.createObjectStore("rubrosData");
         }
       },
     });
+
     return dbInstance;
   };
 
   const clearDataInDB = async (currentView) => {
     try {
       const db = await initDB();
-      
-      // Vaciar datos de rubrosData (si es necesario)
-      await db.put("rubrosData", {
-        updatedRubros: [],
-        monthlyTotals: Array(12).fill(0),
-        rubrosTotals: {},
-        inputs: {},
-      }, `${currentView}_rubrosData`);
-      
+      const tx = db.transaction("rubrosData", "readwrite");
+      const store = tx.objectStore("rubrosData");
+      await store.put(
+        {
+          updatedRubros: [],
+          monthlyTotals: Array(12).fill(0),
+          rubrosTotals: {},
+          inputs: {},
+        },
+        `${currentView}_rubrosData`
+      );
+      await tx.done;
     } catch (error) {
       console.error("Error al vaciar datos en IndexedDB:", error);
     }
@@ -52,11 +54,17 @@ const Storage = () => {
 
   const saveDataToDB = async (key, data) => {
     const db = await initDB();
+    if (!db) {
+      console.error("IndexedDB no está disponible");
+      return;
+    }
     try {
-      await db.put("rubrosData", data, key);
+      const tx = db.transaction("rubrosData", "readwrite");
+      const store = tx.objectStore("rubrosData");
+      await store.put(data, key);
+      await tx.done;
     } catch (error) {
-      console.error("Error fetching data from DB:", error);
-      throw error;
+      console.error("Error al guardar datos en IndexedDB:", error);
     }
   };
 
@@ -93,50 +101,29 @@ const Storage = () => {
     
           const data = await presupuestosResponse.json();
           allData = [...allData, ...data.results]; // Concatenate new data
-          totalPages = Math.ceil(data.count / 3000); // Update total pages
+          totalPages = Math.ceil(data.count / 1000); // Update total pages
           page++; // Move to the next page
         } while (page <= totalPages);
     
-        // setUpdatedRubros(allData[0].updatedRubros);
-        // const organizedData = organizeData(allData);
-        // setData(organizedData);    credentials: "include",
-        //   keepalive: true 
-        // });
-
-        // if (!response.ok) {
-        //   console.error(`HTTP error! Status: ${response.status} - ${response.statusText}`);
-        //   throw new Error(`HTTP error! Status: ${response.status}`);
-        // }
-        
-        // const data = await response.json();
-        // const results = data.results || []; // This will be an array
-        // console.log(results, data);
-        // Transform the results data
         const transformedData = allData.map((item) => ({
           id: item.id,
           usuario: item.usuario,
           uen: item.uen,
-          codigo: item.cuenta,
+          centroCostoid: item.cuenta,
           rubro: item.rubro,
           subrubro: item.subrubro,
           auxiliar: item.auxiliar,
           item: item.item,
-          meses: item.meses,
-          value: item.presupuestomes,
+          meses_presupuesto: item.meses_presupuesto,
           fecha: item.fecha,
           rubrosTotals: item.rubrosTotals,
           updatedRubros: item.updatedRubros,
           monthlyTotals: item.monthlyTotals,
         }));
-        console.log(transformedData);
         setPresupuestos(transformedData || []);
-        // Set updatedRubros here, assuming it's the same across all items in transformedData
-        // if (transformedData.length > 0) {
-        //   setUpdatedRubros(transformedData[0].updatedRubros || []);
-        // }
       } catch (error) {
         console.error("Error fetching data:", error);
-      }finally {
+      } finally {
         setIsLoading(false);
       }
     };
@@ -167,71 +154,70 @@ const Storage = () => {
       );
     });
 
-
-    // Iterate through filteredPresupuestos to construct input IDs and values
     if (filteredPresupuestos.length > 0) {
       const newInputValues = {};
-      // const RubrosTotals = {}; // Initialize an object to hold updated rubros totals
-      // const newMonthlyTotals = Array(12).fill(0); // Initialize an array for monthly totals
-    
-      // Iterate over each entry in filtered presupuestos
+      const newMonthlyTotals = [];
+      const newRubrosTotals = {};
+      const updatedRubrosCopy = filteredPresupuestos[0].updatedRubros || [];
+
       filteredPresupuestos.forEach((entry) => {
-        const inputId = `outlined-basic-${entry.rubro}-${entry.subrubro}-${entry.auxiliar}-${entry.item}-${entry.meses}`;
-        newInputValues[inputId] = { ...entry };
+        const { id, centroCostoid, rubro, subrubro, auxiliar, item, meses_presupuesto } = entry;
+        
+        if (meses_presupuesto && Array.isArray(meses_presupuesto)) {
+          meses_presupuesto.forEach(({ meses, presupuestomes }) => {
+            const inputId = `outlined-basic-${rubro}-${subrubro}-${auxiliar}-${item}-${meses}`;
+            
+            newInputValues[inputId] = {
+              centroCostoid,
+              id,
+              rubro,
+              subrubro,
+              auxiliar,
+              item,
+              meses,
+              value: parseFloat(presupuestomes),
+            };
     
-      //   // Update rubros totals and monthly totals
-      //   const rubroName = entry.rubro; // Assuming rubro is the key name
-      //   const monthValues = entry.monthlyTotals || []; // Assuming monthlyTotals are available in the entry
-    
-      //   // Initialize rubro totals if not already present
-      //   if (!RubrosTotals[rubroName]) {
-      //     RubrosTotals[rubroName] = Array(12).fill(0);
-      //   }
-    
-      //   // Update rubros totals and monthly totals based on the current entry
-      //   monthValues.forEach((value, monthIndex) => {
-      //     if (value) {
-      //       RubrosTotals[rubroName][monthIndex] += value; // Update rubro totals
-      //       newMonthlyTotals[monthIndex] += value; // Update monthly totals
-      //     }
-      //   });
+            const value = parseFloat(newInputValues[inputId]?.value) || 0;
+            
+            if (!newMonthlyTotals[meses]) {
+              newMonthlyTotals[meses] = 0;
+            }
+            newMonthlyTotals[meses] += value;
+
+            const rubroNombre = updatedRubrosCopy[rubro].nombre
+            if (rubroNombre) {
+              if (!newRubrosTotals[rubroNombre]) {
+                newRubrosTotals[rubroNombre] = Array(12).fill(0); 
+              }
+              if (!newRubrosTotals[rubroNombre][meses]) {
+                newRubrosTotals[rubroNombre][meses] = 0;
+              }
+              newRubrosTotals[rubroNombre][meses] += value;
+            }
+          });
+        }
       });
     
-      // setInputValues(newInputValues);
       const currentView = nombre === "Unidades de Apoyo" ? "unidad-apoyo" : nombre.toLowerCase();
     
       await clearDataInDB(currentView);
-      // Generate labeled rubros totals by comparing indexes with updatedRubros
-      // const labeledRubrosTotals = {};
-      // const updatedRubros = filteredPresupuestos[filteredPresupuestos.length - 1].updatedRubros
-
-      // // Create labeledRubrosTotals with the actual rubro names from updatedRubros
-      // Object.keys(RubrosTotals).forEach((key, index) => {
-      //   const rubroLabel = updatedRubros[index]?.nombre;
-      //   if (rubroLabel) {
-      //     labeledRubrosTotals[rubroLabel] = RubrosTotals[key];
-      //   }
-      // });
-
+    
       await saveDataToDB(`${currentView}_rubrosData`, {
         inputs: newInputValues,
-        id: filteredPresupuestos.map((entry) => entry.id),
-        centroCostoid: filteredPresupuestos.map((entry) => entry.codigo),
-        rubrosTotals: filteredPresupuestos[filteredPresupuestos.length - 1].rubrosTotals,
+        centroCostoid: filteredPresupuestos.map((entry) => entry.centroCostoid),
         updatedRubros: filteredPresupuestos[filteredPresupuestos.length - 1].updatedRubros,
-        monthlyTotals: filteredPresupuestos[filteredPresupuestos.length - 1].monthlyTotals,
+        rubrosTotals: newRubrosTotals,
+        monthlyTotals: newMonthlyTotals,
       });
-    
-      router.push(`/uen/${currentView}`);
-    } else {
-      console.error("No se encontraron presupuestos para la UEN seleccionada");
-    }      
-  };
 
+      router.push(`/uen/${currentView}`);
+    }
+  };
   
   return (
     <>
-    if (isLoading) return <LoadingModal open={isLoading} />
+      {isLoading && <LoadingModal open={isLoading} />}
       <div style={{ display: "flex", flexDirection: "row", height: "100vh" }}>
         <Sidebar />
         <div style={{ display: "flex", flexDirection: "column", width: "80%" }}>
@@ -246,7 +232,7 @@ const Storage = () => {
                   handleCardClick(
                     presupuesto.uen.nombre,
                     presupuesto.usuario.id,
-                    presupuesto.fecha,
+                    presupuesto.fecha
                   )
                 }
               />

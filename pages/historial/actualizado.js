@@ -1,4 +1,3 @@
-//index.js
 import Sidebar from "@/components/sidebar";
 import CardStorage from "@/components/cardStorage";
 import { useEffect, useState } from "react";
@@ -20,31 +19,34 @@ const Storage = () => {
 
   const initDB = async () => {
     if (dbInstance) return dbInstance;
-    dbInstance = await openDB("PresupuestoDB");
-    const newVersion = dbInstance.version + 1;
-    dbInstance.close();
-    dbInstance = await openDB("PresupuestoDB", newVersion, {
+    indexedDB.deleteDatabase("PresupuestoDB");
+
+    dbInstance = await openDB("PresupuestoDB", 1, {
       upgrade(db) {
         if (!db.objectStoreNames.contains("rubrosData")) {
           db.createObjectStore("rubrosData");
         }
       },
     });
+
     return dbInstance;
   };
 
   const clearDataInDB = async (currentView) => {
     try {
       const db = await initDB();
-      
-      // Vaciar datos de rubrosData (si es necesario)
-      await db.put("rubrosData", {
-        updatedRubros: [],
-        monthlyTotals: Array(12).fill(0),
-        rubrosTotals: {},
-        inputs: {},
-      }, `${currentView}_rubrosData`);
-      
+      const tx = db.transaction("rubrosData", "readwrite");
+      const store = tx.objectStore("rubrosData");
+      await store.put(
+        {
+          updatedRubros: [],
+          monthlyTotals: Array(12).fill(0),
+          rubrosTotals: {},
+          inputs: {},
+        },
+        `${currentView}_rubrosData`
+      );
+      await tx.done;
     } catch (error) {
       console.error("Error al vaciar datos en IndexedDB:", error);
     }
@@ -52,11 +54,17 @@ const Storage = () => {
 
   const saveDataToDB = async (key, data) => {
     const db = await initDB();
+    if (!db) {
+      console.error("IndexedDB no está disponible");
+      return;
+    }
     try {
-      await db.put("rubrosData", data, key);
+      const tx = db.transaction("rubrosData", "readwrite");
+      const store = tx.objectStore("rubrosData");
+      await store.put(data, key);
+      await tx.done;
     } catch (error) {
-      console.error("Error fetching data from DB:", error);
-      throw error;
+      console.error("Error al guardar datos en IndexedDB:", error);
     }
   };
 
@@ -113,10 +121,9 @@ const Storage = () => {
           monthlyTotals: item.monthlyTotals,
         }));
         setPresupuestos(transformedData || []);
-
       } catch (error) {
         console.error("Error fetching data:", error);
-      }finally {
+      } finally {
         setIsLoading(false);
       }
     };
@@ -147,23 +154,22 @@ const Storage = () => {
       );
     });
 
-
-    // Iterate through filteredPresupuestos to construct input IDs and values
     if (filteredPresupuestos.length > 0) {
       const newInputValues = {};
-    
-      // Iterate over each entry in filtered presupuestos
+      const newMonthlyTotals = [];
+      const newRubrosTotals = {};
+      const updatedRubrosCopy = filteredPresupuestos[0].updatedRubros || [];
+
       filteredPresupuestos.forEach((entry) => {
         const { id, centroCostoid, rubro, subrubro, auxiliar, item, meses_presupuesto } = entry;
-        // Verifica que 'meses_presupuesto' exista y sea un array
+        
         if (meses_presupuesto && Array.isArray(meses_presupuesto)) {
-          meses_presupuesto.forEach(({meses, presupuestomes }) => {
-            // Crea un ID único usando rubro, subrubro, auxiliar, item, y mes
+          meses_presupuesto.forEach(({ meses, presupuestomes }) => {
             const inputId = `outlined-basic-${rubro}-${subrubro}-${auxiliar}-${item}-${meses}`;
-            // Guarda los datos en newInputValues, incluyendo el id
+            
             newInputValues[inputId] = {
               centroCostoid,
-              id, 
+              id,
               rubro,
               subrubro,
               auxiliar,
@@ -171,6 +177,24 @@ const Storage = () => {
               meses,
               value: parseFloat(presupuestomes),
             };
+    
+            const value = parseFloat(newInputValues[inputId]?.value) || 0;
+            
+            if (!newMonthlyTotals[meses]) {
+              newMonthlyTotals[meses] = 0;
+            }
+            newMonthlyTotals[meses] += value;
+
+            const rubroNombre = updatedRubrosCopy[rubro].nombre
+            if (rubroNombre) {
+              if (!newRubrosTotals[rubroNombre]) {
+                newRubrosTotals[rubroNombre] = Array(12).fill(0); 
+              }
+              if (!newRubrosTotals[rubroNombre][meses]) {
+                newRubrosTotals[rubroNombre][meses] = 0;
+              }
+              newRubrosTotals[rubroNombre][meses] += value;
+            }
           });
         }
       });
@@ -178,25 +202,22 @@ const Storage = () => {
       const currentView = nombre === "Unidades de Apoyo" ? "unidad-apoyo" : nombre.toLowerCase();
     
       await clearDataInDB(currentView);
-
+    
       await saveDataToDB(`${currentView}_rubrosData`, {
         inputs: newInputValues,
         centroCostoid: filteredPresupuestos.map((entry) => entry.centroCostoid),
-        rubrosTotals: filteredPresupuestos[filteredPresupuestos.length - 1].rubrosTotals,
         updatedRubros: filteredPresupuestos[filteredPresupuestos.length - 1].updatedRubros,
-        monthlyTotals: filteredPresupuestos[filteredPresupuestos.length - 1].monthlyTotals,
+        rubrosTotals: newRubrosTotals,
+        monthlyTotals: newMonthlyTotals,
       });
-    
-      router.push(`/uen/${currentView}`);
-    } else {
-      console.error("No se encontraron presupuestos para la UEN seleccionada");
-    }      
-  };
 
+      router.push(`/uen/${currentView}`);
+    }
+  };
   
   return (
     <>
-    if (isLoading) return <LoadingModal open={isLoading} />
+      {isLoading && <LoadingModal open={isLoading} />}
       <div style={{ display: "flex", flexDirection: "row", height: "100vh" }}>
         <Sidebar />
         <div style={{ display: "flex", flexDirection: "column", width: "80%" }}>
@@ -211,7 +232,7 @@ const Storage = () => {
                   handleCardClick(
                     presupuesto.uen.nombre,
                     presupuesto.usuario.id,
-                    presupuesto.fecha,
+                    presupuesto.fecha
                   )
                 }
               />
