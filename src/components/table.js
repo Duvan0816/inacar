@@ -610,8 +610,8 @@ const CustomTable = ({
             usuario: userId,
             uen,
             updatedRubros,
-            rubrosTotals,
-            monthlyTotals,
+            // rubrosTotals,
+            // monthlyTotals,
             mesesData: [{ meses: parsed.meses, presupuestomes: Math.round(presupuestomes) }],
         };
     });
@@ -721,8 +721,8 @@ const CustomTable = ({
             auxiliar: parseInt(auxiliarIndex),
             item: parseInt(itemIndex),
             updatedRubros,
-            rubrosTotals,
-            monthlyTotals,
+            // rubrosTotals,
+            // monthlyTotals,
             mesesData: [
                 {
                     meses: parseInt(colIndex),
@@ -835,8 +835,8 @@ const CustomTable = ({
             usuario: userId,
             uen,
             updatedRubros,
-            rubrosTotals,
-            monthlyTotals,
+            // rubrosTotals,
+            // monthlyTotals,
             mesesData: [{ meses: parsed.meses, presupuestomes: Math.round(presupuestomes) }],
         };
     });
