@@ -7,6 +7,7 @@ import LoadingModal from "@/components/loading";
 import informeStyles from "../../src/styles/informe.js";
 import * as XLSX from "xlsx";
 import { Button } from "@mui/material";
+import { openDB } from "idb";
 
 const Detallado = () => {
   const [data, setData] = useState([]);
@@ -20,6 +21,31 @@ const Detallado = () => {
   const [isAuxiliarVisible, setIsAuxiliarVisible] = useState(false);
   const [isCuentaVisible, setIsCuentaVisible] = useState(false);
   const [applyPercentage, setApplyPercentage] = useState(true);
+
+  const initDB = async () => {
+    const currentDB = await openDB("PresupuestoDB");
+    if (currentDB.objectStoreNames.contains("rubrosData")) return currentDB;
+    currentDB.close();
+    return openDB("PresupuestoDB", currentDB.version + 1, {
+      upgrade(db) {
+        if (!db.objectStoreNames.contains("rubrosData")) db.createObjectStore("rubrosData");
+      },
+    });
+  };
+
+  const getDataFromDB = async (store, key) => {
+    try {
+      const db = await initDB();
+      const data = await db.get(store, key);
+  
+      if (data === undefined) {
+        return null; 
+      }
+      return data;
+    } catch (error) {
+      return null;
+    }
+  };
 
   const handleTotalToggle = () => {
     setIsTotalVisible(!isTotalVisible);
@@ -139,18 +165,22 @@ const Detallado = () => {
         }
   
         const data = await presupuestosResponse.json();
-        allData = [...allData, ...data.results]; // Concatenate new data
+        allData = [...allData, ...data.results];
 
         totalPages = Math.ceil(data.count / 3000); 
-        page++; // Move to the next page
+        page++;
       } while (page <= totalPages);
-      
-      setUpdatedRubros(allData[0].updatedRubros);
+
+      const savedData = await getDataFromDB("rubrosData", "constructora_rubrosData");
+      if (savedData?.updatedRubros?.length > 0) {
+        setUpdatedRubros(savedData.updatedRubros);
+      }
+
       const organizedData = organizeData(allData);
       setData(organizedData);
     } catch (error) {
       console.error("Fetch error:", error);
-      setError(error.message); // Guardar el mensaje de error en el estado
+      setError(error.message);
     } finally {
       setLoading(false);
     }

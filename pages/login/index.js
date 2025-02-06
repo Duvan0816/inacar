@@ -51,9 +51,9 @@ const Login = () => {
             }
 
             if (data.userType === 'admin') {
-                router.push('/inicio');
+                router.push('/uen/constructora');
             } else if (data.userType === 'user') {
-                router.push('/control');
+                router.push('/');
             } else {
                 setError('Tipo de usuario desconocido.');
             }
