@@ -334,8 +334,8 @@ const Detallado = () => {
       nacionalPromotora: 0.4,
       nacionalInmobiliaria: 0.2,
       diferenteNacionalConstructora: 0.4,
-      diferenteNacionalPromotora: 0.5,
-      diferenteNacionalInmobiliaria: 0.1,
+      diferenteNacionalPromotora: 0.4,
+      diferenteNacionalInmobiliaria: 0.2,
     },
   };
   const renderData = (data) => {
