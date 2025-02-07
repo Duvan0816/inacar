@@ -22,7 +22,7 @@ const Detallado = () => {
   const [isSubrubroVisible, setIsSubrubroVisible] = useState(false);
   const [isAuxiliarVisible, setIsAuxiliarVisible] = useState(false);
   const [isCuentaVisible, setIsCuentaVisible] = useState(false);
-  const [applyPercentage, setApplyPercentage] = useState(true);
+  const [applyPercentage, setApplyPercentage] = useState(false);
 
   const handleTotalToggle = () => {
     setIsTotalVisible(!isTotalVisible);
