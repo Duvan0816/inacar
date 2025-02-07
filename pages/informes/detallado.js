@@ -331,11 +331,11 @@ const Detallado = () => {
     },
     2025: {
       nacionalConstructora: 0.4,
-      nacionalPromotora: 0.4,
-      nacionalInmobiliaria: 0.2,
+      nacionalPromotora: 0.5,
+      nacionalInmobiliaria: 0.1,
       diferenteNacionalConstructora: 0.4,
-      diferenteNacionalPromotora: 0.4,
-      diferenteNacionalInmobiliaria: 0.2,
+      diferenteNacionalPromotora: 0.5,
+      diferenteNacionalInmobiliaria: 0.1,
     },
   };
   const renderData = (data) => {
