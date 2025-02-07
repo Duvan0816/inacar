@@ -7,7 +7,9 @@ import LoadingModal from "@/components/loading";
 import informeStyles from "../../src/styles/informe.js";
 import * as XLSX from "xlsx";
 import { Button } from "@mui/material";
-import { openDB } from "idb";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const csrftoken = getCookie("csrftoken");
 
 const Detallado = () => {
   const [data, setData] = useState([]);
@@ -21,31 +23,6 @@ const Detallado = () => {
   const [isAuxiliarVisible, setIsAuxiliarVisible] = useState(false);
   const [isCuentaVisible, setIsCuentaVisible] = useState(false);
   const [applyPercentage, setApplyPercentage] = useState(true);
-
-  const initDB = async () => {
-    const currentDB = await openDB("PresupuestoDB");
-    if (currentDB.objectStoreNames.contains("rubrosData")) return currentDB;
-    currentDB.close();
-    return openDB("PresupuestoDB", currentDB.version + 1, {
-      upgrade(db) {
-        if (!db.objectStoreNames.contains("rubrosData")) db.createObjectStore("rubrosData");
-      },
-    });
-  };
-
-  const getDataFromDB = async (store, key) => {
-    try {
-      const db = await initDB();
-      const data = await db.get(store, key);
-  
-      if (data === undefined) {
-        return null; 
-      }
-      return data;
-    } catch (error) {
-      return null;
-    }
-  };
 
   const handleTotalToggle = () => {
     setIsTotalVisible(!isTotalVisible);
@@ -134,6 +111,22 @@ const Detallado = () => {
     return organizedData;
   };
 
+  const fetchRubrosData = async () => {
+    const token = localStorage.getItem("token");
+    const rubrosResponse = await fetch(`${API_URL}/rubros/`, {
+      method: "GET",
+      headers: {
+        "X-CSRFToken": csrftoken,
+        Authorization: `Token ${token}`,
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    if (!rubrosResponse.ok) throw new Error(`HTTP error! Status: ${rubrosResponse.status}`);
+    return await rubrosResponse.json();
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -171,10 +164,8 @@ const Detallado = () => {
         page++;
       } while (page <= totalPages);
 
-      const savedData = await getDataFromDB("rubrosData", "constructora_rubrosData");
-      if (savedData?.updatedRubros?.length > 0) {
-        setUpdatedRubros(savedData.updatedRubros);
-      }
+      const rubrosData = await fetchRubrosData();
+      setUpdatedRubros(rubrosData);
 
       const organizedData = organizeData(allData);
       setData(organizedData);
