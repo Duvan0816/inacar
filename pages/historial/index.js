@@ -156,7 +156,7 @@ const Storage = () => {
 
     if (filteredPresupuestos.length > 0) {
       const newInputValues = {};
-      const newMonthlyTotals = [];
+      let newMonthlyTotals = [];
       const newRubrosTotals = {};
       const updatedRubrosCopy = filteredPresupuestos[0].updatedRubros || [];
 
@@ -180,10 +180,14 @@ const Storage = () => {
     
             const value = parseFloat(newInputValues[inputId]?.value) || 0;
             
-            if (!newMonthlyTotals[meses]) {
-              newMonthlyTotals[meses] = 0;
+            if (!Array.isArray(newMonthlyTotals) || newMonthlyTotals.length === 0) {
+              newMonthlyTotals = Array(12).fill(0);
             }
-            newMonthlyTotals[meses] += value;
+            
+            // Verificar si meses es un índice válido (0 a 11)
+            if (typeof meses === "number" && meses >= 0 && meses < 12) {
+              newMonthlyTotals[meses] += value;
+            }
 
             const rubroNombre = updatedRubrosCopy[rubro].nombre
             if (rubroNombre) {
