@@ -835,8 +835,6 @@ const CustomTable = ({
             usuario: userId,
             uen,
             updatedRubros,
-            // rubrosTotals,
-            // monthlyTotals,
             mesesData: [{ meses: parsed.meses, presupuestomes: Math.round(presupuestomes) }],
         };
     });
@@ -867,35 +865,33 @@ const CustomTable = ({
   
       return result;
     };
-    const dataChunks = chunkDataByCuenta(data, 205, 220);
+    const dataChunks = chunkDataByCuenta(data, 85, 100);
     let totalUpdated = 0;
     let totalCreated = 0;
 
     try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-        for (const chunk of dataChunks) {
-            const response = await fetch(`${API_URL}/presupuestoEjecutado/batch-update/`, {
-                method: "PATCH",
-                headers: {
-                    "X-CSRFToken": csrftoken,
-                    Authorization: `Token ${token}`,
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(chunk),
-                credentials: "include",
-            });
-
-            if (!response.ok) {
-                const errorDetail = await response.text();
-                console.error("Error response:", errorDetail);
-                throw new Error(`Error en respuesta del servidor: ${response.status}`);
-            }
-
-            const result = await response.json();
-            totalUpdated += result.updated || 0;
-            totalCreated += result.created || 0;
-        }
+        await Promise.all(dataChunks.map(async (chunk) => {
+          const response = await fetch(`${API_URL}/presupuestoEjecutado/batch-update/`, {
+              method: "PATCH",
+              headers: {
+                  "X-CSRFToken": csrftoken,
+                  Authorization: `Token ${token}`,
+                  "Content-Type": "application/json",
+              },
+              body: JSON.stringify(chunk),
+              credentials: "include",
+          });
+  
+          if (!response.ok) {
+              throw new Error(`Error en respuesta del servidor: ${response.status}`);
+          }
+  
+          const result = await response.json();
+          totalUpdated += result.updated || 0;
+          totalCreated += result.created || 0;
+        }));
 
         setSnackbarMessage(`Presupuesto actualizado con éxito: ${totalUpdated} modificados, ${totalCreated} creados.`);
         setSnackbarSeverity("success");
