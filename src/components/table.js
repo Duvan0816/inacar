@@ -756,7 +756,7 @@ const CustomTable = ({
   
       return result;
     };
-    const dataChunks = chunkDataByCuenta(data, 85, 100);
+    const dataChunks = chunkDataByCuenta(data, 65, 80);
     let totalUpdated = 0;
     let totalCreated = 0;
 
