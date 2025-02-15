@@ -721,8 +721,6 @@ const CustomTable = ({
             auxiliar: parseInt(auxiliarIndex),
             item: parseInt(itemIndex),
             updatedRubros,
-            // rubrosTotals,
-            // monthlyTotals,
             mesesData: [
                 {
                     meses: parseInt(colIndex),
@@ -765,8 +763,8 @@ const CustomTable = ({
     try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-        for (const chunk of dataChunks) {
-            const response = await fetch(`${API_URL}/presupuestosActualizado/batch-update/`, {
+        await Promise.all(dataChunks.map(async (chunk) => {
+          const response = await fetch(`${API_URL}/presupuestosActualizado/batch-update/`, {
                 method: "PATCH",
                 headers: {
                     "X-CSRFToken": csrftoken,
@@ -778,7 +776,7 @@ const CustomTable = ({
             });
 
             if (!response.ok) {
-                const errorDetail = await response.text(); // Registrar detalles del error
+                const errorDetail = await response.text();
                 console.error("Error response:", errorDetail);
                 throw new Error(`Error en respuesta del servidor: ${response.status}`);
             }
@@ -786,7 +784,7 @@ const CustomTable = ({
             const result = await response.json();
             totalUpdated += result.updated || 0;
             totalCreated += result.created || 0;
-        }
+        }));
 
         setSnackbarMessage(`Presupuesto actualizado con éxito: ${totalUpdated} modificados, ${totalCreated} creados.`);
         setSnackbarSeverity("success");
