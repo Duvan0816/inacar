@@ -756,14 +756,14 @@ const CustomTable = ({
   
       return result;
     };
-    const dataChunks = chunkDataByCuenta(data, 50, 65);
+    const dataChunks = chunkDataByCuenta(data, 205, 220);
     let totalUpdated = 0;
     let totalCreated = 0;
 
     try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-        await Promise.all(dataChunks.map(async (chunk) => {
+        for (const chunk of dataChunks) {
           const response = await fetch(`${API_URL}/presupuestosActualizado/batch-update/`, {
                 method: "PATCH",
                 headers: {
@@ -784,7 +784,7 @@ const CustomTable = ({
             const result = await response.json();
             totalUpdated += result.updated || 0;
             totalCreated += result.created || 0;
-        }));
+        };
 
         setSnackbarMessage(`Presupuesto actualizado con éxito: ${totalUpdated} modificados, ${totalCreated} creados.`);
         setSnackbarSeverity("success");
