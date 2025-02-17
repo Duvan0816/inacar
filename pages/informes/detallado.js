@@ -16,8 +16,8 @@ const Detallado = () => {
   const [updatedRubros, setUpdatedRubros] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isTotalVisible, setIsTotalVisible] = useState(true);
-  const [isUtilidadVisible, setIsUtilidadVisible] = useState(true);
+  const [isTotalVisible, setIsTotalVisible] = useState(false);
+  const [isUtilidadVisible, setIsUtilidadVisible] = useState(false);
   const [isRubroVisible, setIsRubroVisible] = useState(false);
   const [isSubrubroVisible, setIsSubrubroVisible] = useState(false);
   const [isAuxiliarVisible, setIsAuxiliarVisible] = useState(false);
