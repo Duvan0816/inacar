@@ -204,15 +204,16 @@ const Storage = () => {
       });
     
       const currentView = nombre === "Unidades de Apoyo" ? "unidad-apoyo" : nombre.toLowerCase();
-    
+      const eliminarPresupuesto = "presupuestoEjecutado"
+
       await clearDataInDB(currentView);
-    
       await saveDataToDB(`${currentView}_rubrosData`, {
         inputs: newInputValues,
         centroCostoid: filteredPresupuestos.map((entry) => entry.centroCostoid),
         updatedRubros: filteredPresupuestos[filteredPresupuestos.length - 1].updatedRubros,
         rubrosTotals: newRubrosTotals,
         monthlyTotals: newMonthlyTotals,
+        eliminarPresupuesto: eliminarPresupuesto,
       });
 
       router.push(`/uen/${currentView}`);

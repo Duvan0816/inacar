@@ -16,6 +16,7 @@ const UnidadDeApoyo = () => {
   const [rubrosTotals, setRubrosTotals] = useState({});
   const [inputValues, setInputValues] = useState({});
   const [updatedCentroCostos, setCentroCostos] = useState([]);
+  const [eliminarPresupuesto, setEliminarPresupuesto] = useState(null);
   const [userId, setUserId] = useState(null);
   const [CentroCostoid, setCentroCostoid] = useState();
   const [isLoading, setIsLoading] = useState(true);
@@ -111,6 +112,7 @@ const UnidadDeApoyo = () => {
           setRubrosTotals(savedData.rubrosTotals || {});
           setInputValues(savedData.inputs || {});
           setCentroCostoid(savedData.centroCostoid || {});
+          setEliminarPresupuesto(savedData.eliminarPresupuesto || {});
         } else {
           const rubrosData = await fetchRubrosData();
           setUpdatedRubros(rubrosData);
@@ -144,6 +146,7 @@ const UnidadDeApoyo = () => {
     <div style={{ display: "flex", flexDirection: "row", overflow: "auto", marginRight: "10px", height: "100vh" }}>
       <Sidebar />
       <CustomTable
+        eliminarPresupuesto={eliminarPresupuesto}
         setIsLoading={setIsLoading}
         isLoading={isLoading}
         initDB={initDB}
