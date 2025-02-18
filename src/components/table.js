@@ -991,27 +991,29 @@ const CustomTable = ({
           tooltipTitle={"Subir archivo"}
           onClick={handleSpeedDialClick}
         />
-        {/* <SpeedDialAction
-          key={"Save"}
-          icon={<SaveIcon />}
-          tooltipTitle={"Guardar"}
-          onClick={PresupuestoProyectado}
-          disabled={isLoading}
-        /> */}
-        <SpeedDialAction
-          key={"Update"}
-          icon={<AutorenewIcon />}
-          tooltipTitle={"Actualizado Julio"}
-          onClick={PresupuestoActualizado}
-          disabled={isLoading}
-        />
-        {/* <SpeedDialAction
-          key={"Ejecutado"}
-          icon={<AutoStoriesIcon  />}
-          tooltipTitle={"Ejecutado"}
-          onClick={PresupuestoEjecutado}
-          disabled={isLoading}
-        /> */}
+      <SpeedDialAction
+        key={"Save"}
+        icon={<SaveIcon />}
+        tooltipTitle={"Guardar"}
+        onClick={PresupuestoProyectado}
+        disabled={true} // Solo este botón estará deshabilitado
+      />
+
+      <SpeedDialAction
+        key={"Update"}
+        icon={<AutorenewIcon />}
+        tooltipTitle={"Actualizado Julio"}
+        onClick={PresupuestoActualizado}
+        disabled={false} // Se mantiene habilitado
+      />
+
+      <SpeedDialAction
+        key={"Ejecutado"}
+        icon={<AutoStoriesIcon />}
+        tooltipTitle={"Ejecutado"}
+        onClick={PresupuestoEjecutado}
+        disabled={false} // Se mantiene habilitado
+      />
       </SpeedDial>
       <Dialog
         open={open}
