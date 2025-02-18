@@ -925,27 +925,23 @@ const GraficaEjecutado = () => {
     };
     
     return (
-        <div style={{ display: "flex", flexDirection: "row" }}>
+        <div style={{ display: "flex", flexDirection: "row", background: "#f9f9f9", minHeight: "100vh" }}>
             <Sidebar />
-            <div style={{ display: "flex", width: "100%", flexDirection: "column" }}>
+            <div style={{ flex: 1, padding: "20px" }}>
                 {loading ? (
                     <LoadingModal open={loading} />
                 ) : (
                     <>
-                        <h2 style={{ textAlign: "center" }}>Gráfica por UEN</h2>
-    
-                        {/* Filtro por UEN */}
-                        <div style={{ margin: "20px 0", textAlign: "center" }}>
-                            <label htmlFor="uen-select">Selecciona un UEN: </label>
+                        <div style={{ textAlign: "center", marginBottom: "20px" }}>
+                            <h2>Gráfica de Presupuesto Ejecutado</h2>    
                             <select
-                                id="uen-select"
                                 value={uenFilter || ""}
                                 onChange={(e) => {
                                     setUenFilter(e.target.value || "");
-                                    setRubroFilter(""); // Reiniciar rubroFilter al cambiar de UEN
+                                    setRubroFilter("");
                                 }}
                             >
-                                <option value="">Seleccionar</option>
+                                <option value="">Selecciona un UEN</option>
                                 {uenOptions.map((uen) => (
                                     <option key={uen} value={uen}>
                                         {uen}

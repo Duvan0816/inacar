@@ -991,13 +991,13 @@ const CustomTable = ({
           tooltipTitle={"Subir archivo"}
           onClick={handleSpeedDialClick}
         />
-        <SpeedDialAction
+        {/* <SpeedDialAction
           key={"Save"}
           icon={<SaveIcon />}
           tooltipTitle={"Guardar"}
           onClick={PresupuestoProyectado}
           disabled={isLoading}
-        />
+        /> */}
         <SpeedDialAction
           key={"Update"}
           icon={<AutorenewIcon />}
@@ -1005,13 +1005,13 @@ const CustomTable = ({
           onClick={PresupuestoActualizado}
           disabled={isLoading}
         />
-        <SpeedDialAction
+        {/* <SpeedDialAction
           key={"Ejecutado"}
           icon={<AutoStoriesIcon  />}
           tooltipTitle={"Ejecutado"}
           onClick={PresupuestoEjecutado}
           disabled={isLoading}
-        />
+        /> */}
       </SpeedDial>
       <Dialog
         open={open}
