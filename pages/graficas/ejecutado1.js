@@ -1,27 +1,32 @@
 import React, { useState, useEffect } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, LabelList } from 'recharts';
 import Sidebar from "@/components/sidebar";
 import LoadingModal from "@/components/loading";
 import { getCookie } from "../../src/utils/cookieUtils";
 
-const GraficaActualizado = () => {
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const csrftoken = getCookie("csrftoken");
+
+const GraficaEjecutado = () => {
     const [data, setData] = useState([]);
     const [dataActual, setDataActual] = useState([]);
     const [updatedRubros, setUpdatedRubros] = useState([]);
-    const [updatedRubrosActualizado, setUpdatedRubrosActualizado] = useState([]);
     const [loading, setLoading] = useState(true);
     const [uenFilter, setUenFilter] = useState(null); // UEN seleccionado
     const [rubroFilter, setRubroFilter] = useState(null); // Rubro seleccionado
     const [uenOptions, setUenOptions] = useState([]); // Lista de UENs
     const [rubroChartData, setRubroChartData] = useState([]);
     const [subrubroChartData, setSubrubroChartData] = useState([]);
+    const [CombinedrubroChartData, setCombinedRubroChartData] = useState([]);
+    const [CombinedsubrubroChartData, setCombinedSubrubroChartData] = useState([]);
     const [error, setError] = useState(null);
 
     const organizeGenericData = (data) => {
         const organizedData = {};
         data.forEach((item) => {
             const year = new Date(item.fecha).getFullYear();
-            const uen = item.uen || "Desconocido";
+            const uen = item.uen;
+            const zone = item.cuenta.regional;
             const rubroIndex = item.rubro;
             const subrubroIndex = item.subrubro;
 
@@ -31,19 +36,49 @@ const GraficaActualizado = () => {
             ) || 0;
 
             if (!organizedData[year]) organizedData[year] = {};
-            if (!organizedData[year][uen]) organizedData[year][uen] = { total: 0, rubros: {} };
-            if (!organizedData[year][uen].rubros[rubroIndex])
-                organizedData[year][uen].rubros[rubroIndex] = { total: 0, subrubros: {} };
+            if (!organizedData[year][uen]) organizedData[year][uen] = { total: 0, zones: {} };
+            if (!organizedData[year][uen].zones[zone]) organizedData[year][uen].zones[zone] = { total: 0, rubros: {} };
+            if (!organizedData[year][uen].zones[zone].rubros[rubroIndex]) {
+              organizedData[year][uen].zones[zone].rubros[rubroIndex] = {
+                total: 0,
+                subrubros: {},
+              };
+            }
+        
+            if (!organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex]) {
+              organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex] = {
+                total: 0,
+              };
+            }
+            organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex].total += totalPresupuestoMes;
 
-            if (!organizedData[year][uen].rubros[rubroIndex].subrubros[subrubroIndex])
-                organizedData[year][uen].rubros[rubroIndex].subrubros[subrubroIndex] = { total: 0 };
-
-            organizedData[year][uen].rubros[rubroIndex].subrubros[subrubroIndex].total += totalPresupuestoMes;
-            organizedData[year][uen].rubros[rubroIndex].total += totalPresupuestoMes;
-            organizedData[year][uen].total += totalPresupuestoMes;
+            if (rubroIndex === 3 && subrubroIndex === 14) {
+      
+            } else {
+              // Agregar a los totales de rubro, zona y UEN si no es "HONORARIOS INTERNOS"
+              organizedData[year][uen].zones[zone].rubros[rubroIndex].total += totalPresupuestoMes;
+              organizedData[year][uen].zones[zone].total += totalPresupuestoMes;
+              organizedData[year][uen].total += totalPresupuestoMes;
+            }
         });
 
         return organizedData;
+    };
+
+    const fetchRubrosData = async () => {
+        const token = localStorage.getItem("token");
+        const rubrosResponse = await fetch(`${API_URL}/rubros/`, {
+          method: "GET",
+          headers: {
+            "X-CSRFToken": csrftoken,
+            Authorization: `Token ${token}`,
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        });
+    
+        if (!rubrosResponse.ok) throw new Error(`HTTP error! Status: ${rubrosResponse.status}`);
+        return await rubrosResponse.json();
     };
 
     const fetchData = async () => {
@@ -80,14 +115,15 @@ const GraficaActualizado = () => {
 
             const [proyectadoData, actualizadoData] = await Promise.all([
                 fetchDataset("InformeDetalladoPresupuesto"),
-                fetchDataset("Actualizado"),
+                fetchDataset("InformePresupuestoEjecutado"),
             ]);
+
+            const rubrosData = await fetchRubrosData();
+            setUpdatedRubros(rubrosData);
 
             const organizedProyectado = organizeGenericData(proyectadoData);
             const organizedActualizado = organizeGenericData(actualizadoData);
 
-            setUpdatedRubros(proyectadoData[0]?.updatedRubros || []);
-            setUpdatedRubrosActualizado(actualizadoData[0]?.updatedRubros || []);
             setData(organizedProyectado);
             setDataActual(organizedActualizado);
 
@@ -115,6 +151,10 @@ const GraficaActualizado = () => {
         if (uenFilter) {
             setRubroChartData(generateRubroChartData());
             setSubrubroChartData(generateSubrubroChartData());
+        } else {
+            // When no UEN filter is applied, show the combined data for all UENs
+            setCombinedRubroChartData(generateCombinedRubroChartData());
+            setCombinedSubrubroChartData(generateCombinedSubrubroChartData());
         }
     }, [uenFilter, rubroFilter]);
 
@@ -241,88 +281,649 @@ const GraficaActualizado = () => {
         return { ...totals, utilidadBrutaActualizado, utilidadoPerdidaOperacionalActualizado, utilidadAntesDeImpuestoActualizado };
     };
 
-    const generateRubroChartData = () => {
+    updatedRubros.forEach(rubro => {
+        if (rubro.nombre === "GASTOS OPERACIONALES DE ADMINISTRACION") {
+            rubro.nombre = "GASTOS ADMINISTRACION";
+        }
+        if (rubro.nombre === "GASTOS OPERACIONALES DE COMERCIALIZACION") {
+            rubro.nombre = "GASTOS COMERCIALIZACION";
+        }
+    });
+
+    const generateCombinedRubroChartData = () => {
         const chartData = [];
+    
+        // Define el orden personalizado de las categorías
+        const categoriaOrder = [
+            "INGRESOS OPERACIONALES",
+            "COSTOS DE VENTA",
+            "GASTOS ADMINISTRACION",
+            "GASTOS COMERCIALIZACION",
+            "INGRESOS NO OPERACIONALES",
+            "GASTOS NO OPERACIONALES",
+            "UTILIDAD"
+        ];
+        
         Object.entries(data).forEach(([year, uens]) => {
-            if (!uenFilter) return;
 
-            const rubrosDataProyectado = uens[uenFilter]?.rubros || {};
-            const rubrosDataActualizado = dataActual[year]?.[uenFilter]?.rubros || {};
+            const yearPercentages = {
+                2025: {
+                  nacionalConstructora: 0.4,
+                  nacionalPromotora: 0.4,
+                  nacionalInmobiliaria: 0.2,
+                  diferenteNacionalConstructora: 0.4,
+                  diferenteNacionalPromotora: 0.5,
+                  diferenteNacionalInmobiliaria: 0.1,
+                },
+            };
 
-            Object.entries(rubrosDataProyectado).forEach(([rubroIndex, { total: proyectadoTotal }]) => {
-                const rubroNombre = updatedRubros?.[rubroIndex]?.nombre || updatedRubrosActualizado?.[rubroIndex]?.nombre || "Rubro Desconocido";
-                const actualizadoTotal = rubrosDataActualizado?.[rubroIndex]?.total || 0;
-                const diferenciaTotal = (proyectadoTotal - actualizadoTotal) || 0;
+            const percentages = yearPercentages[year] || {};
 
-                chartData.push({
-                    year,
-                    categoria: rubroNombre,
-                    proyectado: (proyectadoTotal || 0 / 1_000_000).toFixed(0),
-                    actualizado: (actualizadoTotal / 1_000_000).toFixed(0), 
-                    diferencia: (diferenciaTotal / 1_000_000).toFixed(0),
+            const aplicarPorcentaje = (nacionalShare, rubrosData, tipo) => {
+                Object.entries(nacionalShare).forEach(([rubroIndex, rubroData]) => {
+                    const index = Number(rubroIndex);
+                    if (!rubrosData[index]) return;
+                    rubrosData[index].total += rubroData.total;
+                });
+            };
+
+            const actualizedYearData = dataActual[year] || {};
+            const combinedRubrosActualizado = {};
+            const combinedRubrosProyectado = {};
+    
+            // **Recorrer cada UEN y sus zonas para combinar los datos**
+            Object.values(uens).forEach((uenData) => {
+                const zonas = uenData.zones || {};
+                Object.values(zonas).forEach(({ rubros }) => {
+                    Object.entries(rubros).forEach(([rubroIndex, rubroData]) => {
+                        if (!combinedRubrosProyectado[rubroIndex]) {
+                            combinedRubrosProyectado[rubroIndex] = { total: 0 };
+                        }
+                        combinedRubrosProyectado[rubroIndex].total += rubroData.total || 0;
+                    });
                 });
             });
-        });
 
+            // Obtener datos de Unidades de Apoyo
+            const apoyoTotalZonas = uens["Unidades de Apoyo"]?.zones || {};
+            const nacionalTotalsProyectado = apoyoTotalZonas.Nacional?.rubros || {};
+            const exceptonacionalZoneTotalsProyectado = Object.fromEntries(
+                Object.entries(apoyoTotalZonas).filter(([zones]) => zones !== "Nacional")
+            );
+
+            const nacionalShareConstructoraProyectado = calculateShareNacional(nacionalTotalsProyectado, percentages.nacionalConstructora);
+            const nacionalSharePromotoraProyectado = calculateShareNacional(nacionalTotalsProyectado, percentages.nacionalPromotora);
+            const nacionalShareInmobiliariaProyectado = calculateShareNacional(nacionalTotalsProyectado, percentages.nacionalInmobiliaria);
+
+            // Aplicar porcentaje de Unidades de Apoyo a la UEN filtrada
+            aplicarPorcentaje(nacionalShareConstructoraProyectado, combinedRubrosProyectado);
+            aplicarPorcentaje(nacionalSharePromotoraProyectado, combinedRubrosProyectado);
+            aplicarPorcentaje(nacionalShareInmobiliariaProyectado, combinedRubrosProyectado);
+
+            // Aplicar distribución de otras zonas
+            const otherZonesShareConstructoraProyectado = calculateShareExceptoNacional(exceptonacionalZoneTotalsProyectado, percentages.diferenteNacionalConstructora);
+            const otherZonesSharePromotoraProyectado = calculateShareExceptoNacional(exceptonacionalZoneTotalsProyectado, percentages.diferenteNacionalPromotora);
+            const otherZonesShareInmobiliariaProyectado = calculateShareExceptoNacional(exceptonacionalZoneTotalsProyectado, percentages.diferenteNacionalInmobiliaria);
+    
+            aplicarPorcentaje(otherZonesShareConstructoraProyectado, combinedRubrosProyectado);
+            aplicarPorcentaje(otherZonesSharePromotoraProyectado, combinedRubrosProyectado);
+            aplicarPorcentaje(otherZonesShareInmobiliariaProyectado, combinedRubrosProyectado);
+
+            Object.values(actualizedYearData).forEach((uenData) => {
+                const zonasActualizadas = uenData.zones || {};
+                Object.values(zonasActualizadas).forEach(({ rubros }) => {
+                    Object.entries(rubros).forEach(([rubroIndex, rubroData]) => {
+                        if (!combinedRubrosActualizado[rubroIndex]) {
+                            combinedRubrosActualizado[rubroIndex] = { total: 0 };
+                        }
+                        combinedRubrosActualizado[rubroIndex].total += rubroData.total || 0;
+                    });
+                });
+            });
+
+            const apoyoTotalZonasActualizadas = dataActual?.[year]?.["Unidades de Apoyo"]?.zones || {};
+            const nacionalTotalsActualizadas = apoyoTotalZonasActualizadas.Nacional?.rubros || {};
+            const exceptonacionalZoneTotalsActualizadas = Object.fromEntries(
+                Object.entries(apoyoTotalZonasActualizadas).filter(([zones]) => zones !== "Nacional")
+            );   
+
+            // Aplicar distribución de la zona nacional
+            const nacionalShareConstructoraActualizadas = calculateShareNacional(nacionalTotalsActualizadas, percentages.nacionalConstructora);
+            const nacionalSharePromotoraActualizadas = calculateShareNacional(nacionalTotalsActualizadas, percentages.nacionalPromotora);
+            const nacionalShareInmobiliariaActualizadas = calculateShareNacional(nacionalTotalsActualizadas, percentages.nacionalInmobiliaria);
+
+            // Aplicar porcentaje de Unidades de Apoyo
+            aplicarPorcentaje(nacionalShareConstructoraActualizadas, combinedRubrosActualizado);
+            aplicarPorcentaje(nacionalSharePromotoraActualizadas, combinedRubrosActualizado);
+            aplicarPorcentaje(nacionalShareInmobiliariaActualizadas, combinedRubrosActualizado);
+
+            // Aplicar distribución de otras zonas
+            const otherZonesShareConstructoraActualizadas = calculateShareExceptoNacional(exceptonacionalZoneTotalsActualizadas, percentages.diferenteNacionalConstructora);
+            const otherZonesSharePromotoraActualizadas = calculateShareExceptoNacional(exceptonacionalZoneTotalsActualizadas, percentages.diferenteNacionalPromotora);
+            const otherZonesShareInmobiliariaActualizadas = calculateShareExceptoNacional(exceptonacionalZoneTotalsActualizadas, percentages.diferenteNacionalInmobiliaria);
+    
+            // Aplicar porcentaje de Unidades de Apoyo
+            aplicarPorcentaje(otherZonesShareConstructoraActualizadas, combinedRubrosActualizado);
+            aplicarPorcentaje(otherZonesSharePromotoraActualizadas, combinedRubrosActualizado);
+            aplicarPorcentaje(otherZonesShareInmobiliariaActualizadas, combinedRubrosActualizado);
+
+            // Función para distribuir valores de otras zonas
+            function calculateShareNacional(totals, percentage) {
+                return Object.entries(totals).reduce((acc, [zone, data]) => {
+                    acc[zone] = { total: (data.total || 0) * percentage };
+                    return acc;
+                }, {});
+            }
+
+            // Función para distribuir valores de otras zonas a los rubros
+            function calculateShareExceptoNacional(totals, percentage) {
+                let sharedRubros = {};
+
+                Object.entries(totals).forEach(([zone, zoneData]) => {
+                    Object.entries(zoneData.rubros || {}).forEach(([rubroIndex, rubroData]) => {
+                        if (!sharedRubros[rubroIndex]) {
+                            sharedRubros[rubroIndex] = { total: 0 };
+                        }
+                        sharedRubros[rubroIndex].total += (rubroData.total || 0) * percentage;
+                    });
+                });
+
+                return sharedRubros;
+            }
+
+            let costosVentaTotalProyectado = 0;
+            let costosVentaTotalActualizado = 0;
+            // **Calcular totales**
+            const proyectadoTotals = calculateTotalsProyectado(combinedRubrosProyectado);
+            const actualizadoTotals = calculateTotalsActualizado(combinedRubrosActualizado);
+    
+            // **Procesar rubros y agregar los datos**
+            Object.entries(combinedRubrosProyectado).forEach(([rubroIndex, rubroData]) => {
+                const rubroNombre = updatedRubros?.[rubroIndex]?.nombre || "Rubro Desconocido";
+                const proyectadoTotal = rubroData.total || 0;
+                const actualizadoTotal = combinedRubrosActualizado?.[rubroIndex]?.total || 0;
+    
+                if (rubroNombre === "COSTOS DE VENTA" || rubroNombre === "COSTOS INDIRECTOS") {
+                    costosVentaTotalProyectado += proyectadoTotal;
+                    costosVentaTotalActualizado += actualizadoTotal;
+                } else {
+                    const diferenciaTotal = (proyectadoTotal - actualizadoTotal) || 0;
+    
+                    chartData.push({
+                        year,
+                        categoria: rubroNombre,
+                        proyectado: (proyectadoTotal / 1_000_000).toFixed(0),
+                        actualizado: (actualizadoTotal / 1_000_000).toFixed(0),
+                        diferencia: (diferenciaTotal / 1_000_000).toFixed(0),
+                    });
+                }
+            });
+    
+            // **Agregar "COSTOS DE VENTA" combinado**
+            const diferenciaTotalCostosVenta = (costosVentaTotalProyectado - costosVentaTotalActualizado) || 0;
+            chartData.push({
+                year,
+                categoria: "COSTOS DE VENTA",
+                proyectado: (costosVentaTotalProyectado / 1_000_000).toFixed(0),
+                actualizado: (costosVentaTotalActualizado / 1_000_000).toFixed(0),
+                diferencia: (diferenciaTotalCostosVenta / 1_000_000).toFixed(0),
+            });
+    
+            // **Agregar "UTILIDAD"**
+            const diferenciaTotalUtilidad = (proyectadoTotals.utilidadAntesDeImpuesto - actualizadoTotals.utilidadAntesDeImpuestoActualizado) || 0;
+            chartData.push({
+                year,
+                categoria: "UTILIDAD",
+                proyectado: (proyectadoTotals.utilidadAntesDeImpuesto / 1_000_000).toFixed(0),
+                actualizado: (actualizadoTotals.utilidadAntesDeImpuestoActualizado / 1_000_000).toFixed(0),
+                diferencia: (diferenciaTotalUtilidad / 1_000_000).toFixed(0),
+            });
+        });
+    
+        // **Ordenar los datos según el orden predefinido**
+        chartData.sort((a, b) => {
+            const indexA = categoriaOrder.indexOf(a.categoria);
+            const indexB = categoriaOrder.indexOf(b.categoria);
+            return indexA - indexB;
+        });
+    
         return chartData;
     };
-
-    const generateSubrubroChartData = () => {
+        
+    const generateCombinedSubrubroChartData = () => {
         const chartData = [];
+    
         Object.entries(data).forEach(([year, uens]) => {
-            if (!uenFilter || !rubroFilter) return;
-
-            const subrubrosDataProyectado = uens[uenFilter]?.rubros[rubroFilter]?.subrubros || {};
-            const subrubrosDataActualizado = dataActual[year]?.[uenFilter]?.rubros[rubroFilter]?.subrubros || {};
-            
-            const subrubrosList =
-            updatedRubros[rubroFilter]?.subrubros ||
-            updatedRubrosActualizado[rubroFilter]?.subrubros ||
-            [];
-            
-            Object.entries(subrubrosDataProyectado).forEach(([subrubroIndex, { total: proyectadoTotal }]) => {
-                const subrubro = subrubrosList[subrubroIndex]; 
-                const subrubroNombre = subrubro.nombre || "Subrubro Desconocido";
-                const actualizadoTotal = subrubrosDataActualizado?.[subrubroIndex]?.total || 0;
+            if (!rubroFilter) return; // Si no hay filtro de rubro, no se genera la gráfica
+    
+            const combinedSubrubrosDataProyectado = {};
+            const combinedSubrubrosDataActualizado = {};
+    
+            // Recorre todas las UENs y sus zonas
+            Object.values(uens).forEach((uenData) => {
+                Object.values(uenData.zones || {}).forEach((zoneData) => {
+                    Object.entries(zoneData.rubros || {}).forEach(([rubroIndex, rubroData]) => {
+                        if (rubroIndex === rubroFilter) {
+                            Object.entries(rubroData.subrubros || {}).forEach(([subrubroIndex, subrubroData]) => {
+                                if (!combinedSubrubrosDataProyectado[subrubroIndex]) {
+                                    combinedSubrubrosDataProyectado[subrubroIndex] = { total: 0 };
+                                }
+                                combinedSubrubrosDataProyectado[subrubroIndex].total += subrubroData.total || 0;
+                            });
+                        }
+                    });
+                });
+            });
+    
+            Object.values(dataActual[year] || {}).forEach((uenData) => {
+                Object.values(uenData.zones || {}).forEach((zoneData) => {
+                    Object.entries(zoneData.rubros || {}).forEach(([rubroIndex, rubroData]) => {
+                        if (rubroIndex === rubroFilter) {
+                            Object.entries(rubroData.subrubros || {}).forEach(([subrubroIndex, subrubroData]) => {
+                                if (!combinedSubrubrosDataActualizado[subrubroIndex]) {
+                                    combinedSubrubrosDataActualizado[subrubroIndex] = { total: 0 };
+                                }
+                                combinedSubrubrosDataActualizado[subrubroIndex].total += subrubroData.total || 0;
+                            });
+                        }
+                    });
+                });
+            });
+    
+            // Generar los datos finales del gráfico
+            Object.entries(combinedSubrubrosDataProyectado).forEach(([subrubroIndex, subrubroData]) => {
+                const subrubroNombre = updatedRubros[rubroFilter]?.subrubros?.[subrubroIndex]?.nombre || "Subrubro Desconocido";
+                const proyectadoTotal = subrubroData.total || 0;
+                const actualizadoTotal = combinedSubrubrosDataActualizado?.[subrubroIndex]?.total || 0;
                 const diferenciaTotal = (proyectadoTotal - actualizadoTotal) || 0;
-
+    
                 chartData.push({
                     year,
                     categoria: subrubroNombre,
-                    proyectado: (proyectadoTotal || 0 / 1_000_000).toFixed(0),
-                    actualizado: (actualizadoTotal / 1_000_000).toFixed(0), 
+                    proyectado: (proyectadoTotal / 1_000_000).toFixed(0),
+                    actualizado: (actualizadoTotal / 1_000_000).toFixed(0),
                     diferencia: (diferenciaTotal / 1_000_000).toFixed(0),
                 });
             });
         });
-
+    
         return chartData;
+    };  
+
+
+
+    const generateRubroChartData = () => {
+        const chartData = [];
+        if (!uenFilter || !data) return chartData;
+    
+        const categoriaOrder = [
+            "INGRESOS OPERACIONALES",
+            "COSTOS DE VENTA",
+            "GASTOS ADMINISTRACION",
+            "GASTOS COMERCIALIZACION",
+            "INGRESOS NO OPERACIONALES",
+            "GASTOS NO OPERACIONALES",
+            "UTILIDAD"
+        ];
+    
+        Object.entries(data).forEach(([year, uens]) => {
+            if (!uens[uenFilter]) return;
+    
+            // Definir porcentajes por año
+            const yearPercentages = {
+                2025: {
+                    nacionalConstructora: 0.4,
+                    nacionalPromotora: 0.4,
+                    nacionalInmobiliaria: 0.2,
+                    diferenteNacionalConstructora: 0.4,
+                    diferenteNacionalPromotora: 0.5,
+                    diferenteNacionalInmobiliaria: 0.1,
+                }
+            };
+
+            const percentages = yearPercentages[year] || {};
+
+            const aplicarPorcentaje = (nacionalShare, rubrosData, tipo) => {
+                Object.entries(nacionalShare).forEach(([rubroIndex, rubroData]) => {
+                    const index = Number(rubroIndex);
+                    if (!rubrosData[index]) return;
+                    rubrosData[index].total += rubroData.total;
+                });
+            };
+    
+            // Obtener datos de la UEN seleccionada
+            const zonasProyectadas = uens[uenFilter]?.zones || {};
+            const zonasActualizadas = dataActual?.[year]?.[uenFilter]?.zones || {};
+            let rubrosDataProyectado = {};
+            let rubrosDataActualizado = {};
+    
+            // Combinar rubros de zonas proyectadas
+            Object.entries(zonasProyectadas).forEach(([zona, { rubros }]) => {
+                Object.entries(rubros).forEach(([rubroIndex, rubroData]) => {
+                    rubrosDataProyectado[rubroIndex] = {
+                        total: (rubrosDataProyectado[rubroIndex]?.total || 0) + rubroData.total,
+                    };
+                });
+            });
+
+            // Obtener datos de Unidades de Apoyo
+            const apoyoTotalZonas = uens["Unidades de Apoyo"]?.zones || {};
+            const nacionalTotalsProyectado = apoyoTotalZonas.Nacional?.rubros || {};
+            const exceptonacionalZoneTotalsProyectado = Object.fromEntries(
+                Object.entries(apoyoTotalZonas).filter(([zones]) => zones !== "Nacional")
+            );
+
+            const nacionalShareConstructoraProyectado = calculateShareNacional(nacionalTotalsProyectado, percentages.nacionalConstructora);
+            const nacionalSharePromotoraProyectado = calculateShareNacional(nacionalTotalsProyectado, percentages.nacionalPromotora);
+            const nacionalShareInmobiliariaProyectado = calculateShareNacional(nacionalTotalsProyectado, percentages.nacionalInmobiliaria);
+    
+            // Aplicar porcentaje de Unidades de Apoyo a la UEN filtrada
+            if (uenFilter.includes("Constructora")) {
+                aplicarPorcentaje(nacionalShareConstructoraProyectado, rubrosDataProyectado);
+            } else if (uenFilter.includes("Promotora")) {
+                aplicarPorcentaje(nacionalSharePromotoraProyectado, rubrosDataProyectado);
+            } else if (uenFilter.includes("Inmobiliaria")) {
+                aplicarPorcentaje(nacionalShareInmobiliariaProyectado, rubrosDataProyectado);
+            }
+
+            // Aplicar distribución de otras zonas
+            const otherZonesShareConstructoraProyectado = calculateShareExceptoNacional(exceptonacionalZoneTotalsProyectado, percentages.diferenteNacionalConstructora);
+            const otherZonesSharePromotoraProyectado = calculateShareExceptoNacional(exceptonacionalZoneTotalsProyectado, percentages.diferenteNacionalPromotora);
+            const otherZonesShareInmobiliariaProyectado = calculateShareExceptoNacional(exceptonacionalZoneTotalsProyectado, percentages.diferenteNacionalInmobiliaria);
+    
+            if (uenFilter.includes("Constructora")) {
+                aplicarPorcentaje(otherZonesShareConstructoraProyectado, rubrosDataProyectado);
+            } else if (uenFilter.includes("Promotora")) {
+                aplicarPorcentaje(otherZonesSharePromotoraProyectado, rubrosDataProyectado);
+            } else if (uenFilter.includes("Inmobiliaria")) {
+                aplicarPorcentaje(otherZonesShareInmobiliariaProyectado, rubrosDataProyectado);
+            }
+
+            // Combinar rubros de zonas actualizadas
+            Object.entries(zonasActualizadas).forEach(([zona, { rubros }]) => {
+                Object.entries(rubros).forEach(([rubroIndex, rubroData]) => {
+                    rubrosDataActualizado[rubroIndex] = {
+                        total: (rubrosDataActualizado[rubroIndex]?.total || 0) + rubroData.total,
+                    };
+                });
+            });
+
+            const apoyoTotalZonasActualizadas = dataActual?.[year]?.["Unidades de Apoyo"]?.zones || {};
+            const nacionalTotalsActualizadas = apoyoTotalZonasActualizadas.Nacional?.rubros || {};
+            const exceptonacionalZoneTotalsActualizadas = Object.fromEntries(
+                Object.entries(apoyoTotalZonasActualizadas).filter(([zones]) => zones !== "Nacional")
+            );   
+
+            const nacionalShareConstructoraActualizadas = calculateShareNacional(nacionalTotalsActualizadas, percentages.nacionalConstructora);
+            const nacionalSharePromotoraActualizadas = calculateShareNacional(nacionalTotalsActualizadas, percentages.nacionalPromotora);
+            const nacionalShareInmobiliariaActualizadas = calculateShareNacional(nacionalTotalsActualizadas, percentages.nacionalInmobiliaria);
+    
+            // Aplicar porcentaje de Unidades de Apoyo a la UEN filtrada
+            if (uenFilter.includes("Constructora")) {
+                aplicarPorcentaje(nacionalShareConstructoraActualizadas, rubrosDataActualizado);
+            } else if (uenFilter.includes("Promotora")) {
+                aplicarPorcentaje(nacionalSharePromotoraActualizadas, rubrosDataActualizado);
+            } else if (uenFilter.includes("Inmobiliaria")) {
+                aplicarPorcentaje(nacionalShareInmobiliariaActualizadas, rubrosDataActualizado);
+            }
+            // Aplicar distribución de otras zonas
+            const otherZonesShareConstructoraActualizadas = calculateShareExceptoNacional(exceptonacionalZoneTotalsActualizadas, percentages.diferenteNacionalConstructora);
+            const otherZonesSharePromotoraActualizadas = calculateShareExceptoNacional(exceptonacionalZoneTotalsActualizadas, percentages.diferenteNacionalPromotora);
+            const otherZonesShareInmobiliariaActualizadas = calculateShareExceptoNacional(exceptonacionalZoneTotalsActualizadas, percentages.diferenteNacionalInmobiliaria);
+    
+            if (uenFilter.includes("Constructora")) {
+                aplicarPorcentaje(otherZonesShareConstructoraActualizadas, rubrosDataActualizado);
+            } else if (uenFilter.includes("Promotora")) {
+                aplicarPorcentaje(otherZonesSharePromotoraActualizadas, rubrosDataActualizado);
+            } else if (uenFilter.includes("Inmobiliaria")) {
+                aplicarPorcentaje(otherZonesShareInmobiliariaActualizadas, rubrosDataActualizado);
+            }
+
+            // Función para distribuir valores de otras zonas
+            function calculateShareNacional(totals, percentage) {
+                return Object.entries(totals).reduce((acc, [zone, data]) => {
+                    acc[zone] = { total: (data.total || 0) * percentage };
+                    return acc;
+                }, {});
+            }
+
+            // Función para distribuir valores de otras zonas a los rubros
+            function calculateShareExceptoNacional(totals, percentage) {
+                let sharedRubros = {};
+
+                Object.entries(totals).forEach(([zone, zoneData]) => {
+                    Object.entries(zoneData.rubros || {}).forEach(([rubroIndex, rubroData]) => {
+                        if (!sharedRubros[rubroIndex]) {
+                            sharedRubros[rubroIndex] = { total: 0 };
+                        }
+                        sharedRubros[rubroIndex].total += (rubroData.total || 0) * percentage;
+                    });
+                });
+
+                return sharedRubros;
+            }
+            
+            let costosVentaTotalProyectado = 0;
+            let costosVentaTotalActualizado = 0;
+    
+            const proyectadoTotals = calculateTotalsProyectado(rubrosDataProyectado);
+            const actualizadoTotals = calculateTotalsActualizado(rubrosDataActualizado);
+    
+            // Procesar los datos combinando "COSTOS DE VENTA" y "COSTOS INDIRECTOS"
+            Object.entries(rubrosDataProyectado).forEach(([rubroIndex, { total: proyectadoTotal }]) => {
+                const rubroNombre = updatedRubros?.[rubroIndex]?.nombre || "Rubro Desconocido";
+                const actualizadoTotal = rubrosDataActualizado?.[rubroIndex]?.total || 0;
+    
+                if (rubroNombre === "COSTOS DE VENTA" || rubroNombre === "COSTOS INDIRECTOS") {
+                    costosVentaTotalProyectado += proyectadoTotal;
+                    costosVentaTotalActualizado += actualizadoTotal;
+                } else {
+                    const diferenciaTotal = (proyectadoTotal - actualizadoTotal) || 0;
+    
+                    chartData.push({
+                        year,
+                        categoria: rubroNombre,
+                        proyectado: (proyectadoTotal / 1_000_000).toFixed(0),
+                        actualizado: (actualizadoTotal / 1_000_000).toFixed(0),
+                        diferencia: (diferenciaTotal / 1_000_000).toFixed(0),
+                    });
+                }
+            });
+    
+            // Agregar "COSTOS DE VENTA" como la suma de "COSTOS DE VENTA" y "COSTOS INDIRECTOS"
+            const diferenciaTotalCostosVenta = (costosVentaTotalProyectado - costosVentaTotalActualizado) || 0;
+            chartData.push({
+                year,
+                categoria: "COSTOS DE VENTA",
+                proyectado: (costosVentaTotalProyectado / 1_000_000).toFixed(0),
+                actualizado: (costosVentaTotalActualizado / 1_000_000).toFixed(0),
+                diferencia: (diferenciaTotalCostosVenta / 1_000_000).toFixed(0),
+            });
+    
+            // Agregar utilidad antes de impuestos
+            const diferenciaTotalUtilidad = (proyectadoTotals.utilidadAntesDeImpuesto - actualizadoTotals.utilidadAntesDeImpuestoActualizado) || 0;
+            chartData.push({
+                year,
+                categoria: "UTILIDAD",
+                proyectado: (proyectadoTotals.utilidadAntesDeImpuesto / 1_000_000).toFixed(0),
+                actualizado: (actualizadoTotals.utilidadAntesDeImpuestoActualizado / 1_000_000).toFixed(0),
+                diferencia: (diferenciaTotalUtilidad / 1_000_000).toFixed(0),
+            });
+        });
+    
+        // Ordenar datos según el orden predefinido de categorías
+        chartData.sort((a, b) => {
+            const indexA = categoriaOrder.indexOf(a.categoria);
+            const indexB = categoriaOrder.indexOf(b.categoria);
+            return indexA - indexB;
+        });
+    
+        return chartData;
+    };    
+    
+    const generateSubrubroChartData = () => {
+        const chartData = [];
+    
+        Object.entries(data).forEach(([year, uens]) => {
+            if (!uenFilter || !rubroFilter) return; // No generar si no hay UEN o Rubro seleccionado
+    
+            const combinedSubrubrosDataProyectado = {};
+            const combinedSubrubrosDataActualizado = {};
+    
+            // Recorre todas las zonas dentro de la UEN seleccionada
+            Object.values(uens[uenFilter]?.zones || {}).forEach((zoneData) => {
+                Object.entries(zoneData.rubros || {}).forEach(([rubroIndex, rubroData]) => {
+                    if (rubroIndex === rubroFilter) {
+                        Object.entries(rubroData.subrubros || {}).forEach(([subrubroIndex, subrubroData]) => {
+                            if (!combinedSubrubrosDataProyectado[subrubroIndex]) {
+                                combinedSubrubrosDataProyectado[subrubroIndex] = { total: 0 };
+                            }
+                            combinedSubrubrosDataProyectado[subrubroIndex].total += subrubroData.total || 0;
+                        });
+                    }
+                });
+            });
+    
+            // Recorre todas las zonas de la data actualizada
+            Object.values(dataActual[year]?.[uenFilter]?.zones || {}).forEach((zoneData) => {
+                Object.entries(zoneData.rubros || {}).forEach(([rubroIndex, rubroData]) => {
+                    if (rubroIndex === rubroFilter) {
+                        Object.entries(rubroData.subrubros || {}).forEach(([subrubroIndex, subrubroData]) => {
+                            if (!combinedSubrubrosDataActualizado[subrubroIndex]) {
+                                combinedSubrubrosDataActualizado[subrubroIndex] = { total: 0 };
+                            }
+                            combinedSubrubrosDataActualizado[subrubroIndex].total += subrubroData.total || 0;
+                        });
+                    }
+                });
+            });
+    
+            // Obtener la lista de nombres de subrubros desde `updatedRubros`
+            const subrubrosList =
+                updatedRubros[rubroFilter]?.subrubros ||
+                [];
+    
+            // Generar datos finales del gráfico
+            Object.entries(combinedSubrubrosDataProyectado).forEach(([subrubroIndex, subrubroData]) => {
+                const subrubro = subrubrosList[subrubroIndex];
+                const subrubroNombre = subrubro?.nombre || "Subrubro Desconocido";
+                const proyectadoTotal = subrubroData.total || 0;
+                const actualizadoTotal = combinedSubrubrosDataActualizado?.[subrubroIndex]?.total || 0;
+                const diferenciaTotal = (proyectadoTotal - actualizadoTotal) || 0;
+    
+                chartData.push({
+                    year,
+                    categoria: subrubroNombre,
+                    proyectado: (proyectadoTotal / 1_000_000).toFixed(0),
+                    actualizado: (actualizadoTotal / 1_000_000).toFixed(0),
+                    diferencia: (diferenciaTotal / 1_000_000).toFixed(0),
+                });
+            });
+        });
+    
+        return chartData;
+    };    
+    
+    const renderBarChart = (chartData, title) => {
+        // Calcular el valor máximo en la data
+        const allValues = chartData.flatMap(item => [item.proyectado, item.actualizado, item.diferencia]);
+        const maxValue = Math.max(...allValues);
+        const minValue = Math.min(...allValues);
+    
+        // Redondear al siguiente múltiplo de 20,000 hacia arriba (máximo) y hacia abajo (mínimo)
+        const roundedMaxValue = Math.ceil(maxValue / 20000) * 20000;
+        const roundedMinValue = Math.floor(minValue / 20000) * 20000;
+    
+        // Asegurar que el dominio incluya el 0
+        const domainMin = Math.min(0, roundedMinValue);
+        const domainMax = Math.max(0, roundedMaxValue);
+        return (
+            <div style={{ marginBottom: "40px", padding: "0 40px" }}>
+                <h2 style={{ textAlign: "center" }}>{title}</h2>
+                <ResponsiveContainer width="100%" height={500}>
+                    <BarChart data={chartData} margin={{ top: 80, right: 5, left: 5, bottom: 30 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis
+                            dataKey="categoria"
+                            type="category"
+                            tick={{ fontSize: 12 }}
+                            interval={0}
+                            height={100}
+                        />
+                        <YAxis 
+                            tick={{ fontSize: 14 }} 
+                            width={100} 
+                            domain={[domainMin, domainMax]} 
+                            tickFormatter={(value) => formatNumberWithCommas(value)}
+                        />
+                        <Tooltip formatter={(value) => formatNumberWithCommas(value)} />
+                        <Legend />
+                        <ReferenceLine y={0} stroke="gray" strokeWidth={2} strokeDasharray="3 3" />
+                        <Bar dataKey="proyectado" fill="#8884d8" name="Proyectado">
+                            <LabelList 
+                                dataKey="proyectado" 
+                                position="top" 
+                                fontSize={14} 
+                                formatter={(value) => formatNumberWithCommas(value)} 
+                            />
+                        </Bar>
+                        <Bar dataKey="actualizado" fill="#82ca9d" name="Ejecutado">
+                            <LabelList 
+                                dataKey="actualizado" 
+                                position="top" 
+                                fontSize={14} 
+                                formatter={(value) => formatNumberWithCommas(value)} 
+                            />
+                        </Bar>
+                        <Bar dataKey="diferencia" fill="#ff7300" name="Diferencia">
+                            <LabelList 
+                                dataKey="diferencia" 
+                                position="top" 
+                                fontSize={14} 
+                                formatter={(value) => formatNumberWithCommas(value)} 
+                            />
+                        </Bar>
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
+        );
     };
+    
+    // Función para formatear números con separadores de miles
+    const formatNumberWithCommas = (number) => {
+        return new Intl.NumberFormat('es-ES').format(number);
+    };
+    
+    
 
-    const renderBarChart = (chartData, title) => (
-        <div style={{ marginBottom: "40px" }}>
-            <h2 style={{ textAlign: "center" }}>{title}</h2>
-            <ResponsiveContainer width="100%" height={500}>
-                <BarChart data={chartData} margin={{ top: 20, right: 10, left: 10, bottom: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis
-                        dataKey="categoria"
-                        type="category"
-                        tick={{ fontSize: 10, angle: -5 }}
-                        interval={0}
-                        height={100}
-                    />
-                    <YAxis tick={{ fontSize: 12 }} width={80} />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="proyectado" fill="#8884d8" name="Proyectado" />
-                    <Bar dataKey="actualizado" fill="#82ca9d" name="Actualizado" />
-                    <Bar dataKey="diferencia" fill="#ff7300" name="Diferencia" />
-                </BarChart>
-            </ResponsiveContainer>
-        </div>
-    );
-
+    const getRubroOptions = () => {
+        const uniqueRubros = new Set();
+        const rubroOptions = [];
+    
+        const processZones = (zones) => {
+            Object.values(zones || {}).forEach(zone => {
+                Object.keys(zone?.rubros || {}).forEach(rubro => {
+                    if (!uniqueRubros.has(rubro)) {
+                        uniqueRubros.add(rubro);
+                        rubroOptions.push(
+                            <option key={rubro} value={rubro}>
+                                {updatedRubros?.[rubro]?.nombre || "Rubro Desconocido"}
+                            </option>
+                        );
+                    }
+                });
+            });
+        };
+    
+        if (uenFilter) {
+            processZones(data?.[2025]?.[uenFilter]?.zones);
+        } else {
+            Object.values(data?.[2025] || {}).forEach(uen => processZones(uen?.zones));
+        }
+    
+        return rubroOptions;
+    };
+    
     return (
         <div style={{ display: "flex", flexDirection: "row" }}>
             <Sidebar />
@@ -331,15 +932,18 @@ const GraficaActualizado = () => {
                     <LoadingModal open={loading} />
                 ) : (
                     <>
-                        <h2 style={{ textAlign: "center" }}>Gráficas por UEN</h2>
-
+                        <h2 style={{ textAlign: "center" }}>Gráfica por UEN</h2>
+    
                         {/* Filtro por UEN */}
                         <div style={{ margin: "20px 0", textAlign: "center" }}>
                             <label htmlFor="uen-select">Selecciona un UEN: </label>
                             <select
                                 id="uen-select"
                                 value={uenFilter || ""}
-                                onChange={(e) => setUenFilter(e.target.value || null)}
+                                onChange={(e) => {
+                                    setUenFilter(e.target.value || "");
+                                    setRubroFilter(""); // Reiniciar rubroFilter al cambiar de UEN
+                                }}
                             >
                                 <option value="">Seleccionar</option>
                                 {uenOptions.map((uen) => (
@@ -349,41 +953,56 @@ const GraficaActualizado = () => {
                                 ))}
                             </select>
                         </div>
-
-                        {/* Gráficas UEN*/}
-                        {uenFilter && renderBarChart(rubroChartData)}
-
-                        <h2 style={{ textAlign: "center" }}>Gráfica por Rubro</h2>
-
-                        {/* Filtro por Rubro */}
-                        {uenFilter && (
-                            console.log("Data completa:", data),
-                            console.log("UEN seleccionado:", uenFilter),
-                            
-                            <div style={{ margin: "20px 0", textAlign: "center" }}>
-                                <label htmlFor="rubro-select">Selecciona un Rubro: </label>
-                                <select
-                                id="rubro-select"
-                                value={rubroFilter || ""}
-                                onChange={(e) => setRubroFilter(e.target.value || null)}
-                                >
-                                <option value="">Seleccionar</option>
-                                {Object.keys(data?.[2025]?.[uenFilter]?.rubros || {}).map((rubro) => (
-                                    <option key={rubro} value={rubro}>
-                                        {updatedRubros[rubro]?.nombre}
-                                    </option>
-                                ))}
-                                </select>
-                            </div>
+    
+                        {/* Gráficas y Filtros */}
+                        {uenFilter ? (
+                            <>
+                                {/* Si hay UEN seleccionado, muestra rubroChartData */}
+                                {renderBarChart(rubroChartData)}
+    
+                                {/* Filtro por Rubro */}
+                                <div style={{ margin: "20px 0", textAlign: "center" }}>
+                                    <label htmlFor="rubro-select">Selecciona un Rubro: </label>
+                                    <select
+                                        id="rubro-select"
+                                        value={rubroFilter || ""}
+                                        onChange={(e) => setRubroFilter(e.target.value || "")}
+                                    >
+                                        <option value="">Seleccionar</option>
+                                        {getRubroOptions()}
+                                    </select>
+                                </div>
+    
+                                {/* Si hay Rubro seleccionado, muestra subrubroChartData */}
+                                {rubroFilter && renderBarChart(subrubroChartData, "Gráfico por Rubro")}
+                            </>
+                        ) : (
+                            <>
+                                {/* Si NO hay UEN seleccionado, muestra CombinedrubroChartData */}
+                                {renderBarChart(CombinedrubroChartData)}
+    
+                                {/* Filtro por Rubro */}
+                                <div style={{ margin: "20px 0", textAlign: "center" }}>
+                                    <label htmlFor="rubro-select">Selecciona un Rubro: </label>
+                                    <select
+                                        id="rubro-select"
+                                        value={rubroFilter || ""}
+                                        onChange={(e) => setRubroFilter(e.target.value || "")}
+                                    >
+                                        <option value="">Seleccionar</option>
+                                        {getRubroOptions()}
+                                    </select>
+                                </div>
+    
+                                {/* Si hay Rubro seleccionado, muestra CombinedsubrubroChartData */}
+                                {rubroFilter && renderBarChart(CombinedsubrubroChartData, "Gráfica por Rubro")}
+                            </>
                         )}
-
-                        {/* Gráficas Rubro*/}
-                        {uenFilter && rubroFilter && renderBarChart(subrubroChartData)}
                     </>
                 )}
             </div>
         </div>
-    );
+    );        
 };
 
-export default GraficaActualizado;
+export default GraficaEjecutado;
