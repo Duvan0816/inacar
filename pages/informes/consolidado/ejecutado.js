@@ -13,6 +13,9 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import LoadingModal from "@/components/loading";
 import informeStyles from "../../../src/styles/informe.js";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const csrftoken = getCookie("csrftoken");
+
 const EjecutadoConsolidado = () => {
   const [data, setData] = useState([]); // For the first dataset
   const [dataActual, setDataActual] = useState([]); // For the second dataset
@@ -20,7 +23,23 @@ const EjecutadoConsolidado = () => {
   const [updatedRubrosActualizado, setUpdatedRubrosActualizado] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
+  const fetchRubrosData = async () => {
+    const token = localStorage.getItem("token");
+    const rubrosResponse = await fetch(`${API_URL}/rubros/`, {
+      method: "GET",
+      headers: {
+        "X-CSRFToken": csrftoken,
+        Authorization: `Token ${token}`,
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    if (!rubrosResponse.ok) throw new Error(`HTTP error! Status: ${rubrosResponse.status}`);
+    return await rubrosResponse.json();
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -72,9 +91,11 @@ const EjecutadoConsolidado = () => {
       // Organize data
       const organizedProyectado = organizeGenericData(proyectadoData, "zones", "rubros");
       const organizedActualizado = organizeGenericData(actualizadoData, "zones", "rubros");
-  
-      setUpdatedRubros(proyectadoData[0]?.updatedRubros || []);
-      setUpdatedRubrosActualizado(actualizadoData[0]?.updatedRubros || []);
+      const rubrosData = await fetchRubrosData();
+      setUpdatedRubros(rubrosData);
+      setUpdatedRubrosActualizado(rubrosData);
+      // setUpdatedRubros(proyectadoData[0]?.updatedRubros || []);
+      // setUpdatedRubrosActualizado(actualizadoData[0]?.updatedRubros || []);
       setData(organizedProyectado);
       setDataActual(organizedActualizado);
 
