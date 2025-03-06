@@ -191,7 +191,7 @@ const Sidebar = () => {
                 </div>
                 <div>
                   <ListItem button selected={selectedItem === 'Detallado'} onClick={() => handleItemClick('Detallado', '/informes/detallado')} sx={router.pathname === "/uen/constructora" ? SidebarStyle.item : router.pathname === '/uen/inmobiliaria' ? SidebarStyle.itemInmobiliaria : router.pathname === "/uen/unidad-apoyo" ? SidebarStyle.itemUA : SidebarStyle.item}>
-                    <ListItemText primary="Detallado" />
+                    <ListItemText primary="Inicial" />
                   </ListItem>
                   <ListItem button selected={selectedItem === 'Actualizado'} onClick={() => handleItemClick('Actualizado', '/informes/actualizado')} sx={router.pathname === "/uen/constructora" ? SidebarStyle.item : router.pathname === '/uen/inmobiliaria' ? SidebarStyle.itemInmobiliaria : router.pathname === "/uen/unidad-apoyo" ? SidebarStyle.itemUA : SidebarStyle.item}>
                     <ListItemText primary="Actualizado" />
