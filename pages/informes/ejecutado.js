@@ -8,6 +8,9 @@ import informeStyles from "../../src/styles/informe.js";
 import * as XLSX from "xlsx";
 import { Button } from "@mui/material";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const csrftoken = getCookie("csrftoken");
+
 const Ejecutado = () => {
   const [data, setData] = useState([]);
   const [updatedRubros, setUpdatedRubros] = useState([]);
@@ -107,6 +110,22 @@ const Ejecutado = () => {
     });
     return organizedData;
   };
+  
+  const fetchRubrosData = async () => {
+    const token = localStorage.getItem("token");
+    const rubrosResponse = await fetch(`${API_URL}/rubros/`, {
+      method: "GET",
+      headers: {
+        "X-CSRFToken": csrftoken,
+        Authorization: `Token ${token}`,
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    if (!rubrosResponse.ok) throw new Error(`HTTP error! Status: ${rubrosResponse.status}`);
+    return await rubrosResponse.json();
+  };
 
   const fetchData = async () => {
     try {
@@ -139,13 +158,16 @@ const Ejecutado = () => {
         }
   
         const data = await presupuestosResponse.json();
-        allData = [...allData, ...data.results]; // Concatenate new data
+        allData = [...allData, ...data.results]; 
 
         totalPages = Math.ceil(data.count / 3000); 
-        page++; // Move to the next page
+        page++;
       } while (page <= totalPages);
-      
-      setUpdatedRubros(allData[0].updatedRubros);
+
+      const rubrosData = await fetchRubrosData();
+      setUpdatedRubros(rubrosData);
+
+      // setUpdatedRubros(allData[0].updatedRubros);
       const organizedData = organizeData(allData);
       setData(organizedData);
     } catch (error) {
