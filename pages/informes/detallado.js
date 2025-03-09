@@ -431,7 +431,7 @@ const Detallado = () => {
               sx={{ background: "#a6a2a2" }}
             >
               <Typography sx={{ color: "white" }}>
-                INFORME DETALLADO DE RESULTADOS {year}
+                INFORME INICIAL DE RESULTADOS {year}
               </Typography>
             </AccordionSummary>
             <AccordionDetails>
@@ -875,64 +875,8 @@ const Detallado = () => {
         let currentYear = year;
         let currentUEN = uen;
   
-        // Add a row for the UEN summary
-        // formattedData.push({
-        //   Año: currentYear,
-        //   UEN: currentUEN,
-        //   Zona: "",
-        //   CR: "",
-        //   Rubro: "",
-        //   CS: "",
-        //   Subrubro: "",
-        //   CA: "",
-        //   Auxiliar: "",
-        //   CC: "",
-        //   "Centro Costos": "",
-        //   Totales: uenTotal,
-        //   Enero: "",
-        //   Febrero: "",
-        //   Marzo: "",
-        //   Abril: "",
-        //   Mayo: "",
-        //   Junio: "",
-        //   Julio: "",
-        //   Agosto: "",
-        //   Septiembre: "",
-        //   Octubre: "",
-        //   Noviembre: "",
-        //   Diciembre: "",
-        // });
-  
         Object.entries(zones).forEach(([zone, { total: zoneTotal, rubros }]) => {
           let currentZone = zone;
-  
-          // Add a row for each zone within the UEN
-          // formattedData.push({
-          //   Año: currentYear,
-          //   UEN: currentUEN,
-          //   Zona: currentZone,
-          //   CR: "",
-          //   Rubro: "",
-          //   CS: "",
-          //   Subrubro: "",
-          //   CA: "",
-          //   Auxiliar: "",
-          //   CC: "",
-          //   "Centro Costos": "",
-          //   Totales: zoneTotal,
-          //   Enero: "",
-          //   Febrero: "",
-          //   Marzo: "",
-          //   Abril: "",
-          //   Mayo: "",
-          //   Junio: "",
-          //   Julio: "",
-          //   Agosto: "",
-          //   Septiembre: "",
-          //   Octubre: "",
-          //   Noviembre: "",
-          //   Diciembre: "",
-          // });
   
           Object.entries(rubros).forEach(([rubroIndex, rubroData]) => {
             Object.entries(rubroData.subrubros).forEach(([subrubroIndex, subrubroData]) => {
@@ -1007,10 +951,10 @@ const Detallado = () => {
       ],
     });
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Informe Detallado");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Informe Inicial");
   
     // Export to Excel
-    XLSX.writeFile(workbook, `Informe_Detallado_${new Date().getFullYear()}.xlsx`);
+    XLSX.writeFile(workbook, `Informe_Inicial_${new Date().getFullYear()}.xlsx`);
   };
   
 
@@ -1024,7 +968,7 @@ const Detallado = () => {
             <FormControlLabel
               key="total" // Unique key
               control={<Checkbox checked={isTotalVisible}onChange={handleTotalToggle}color="primary"style={{ marginLeft: "10px" }}/>}
-              label="Ver Totales"
+              label="Totales"
             />
             <FormControlLabel
               key="utilidad" // Unique key

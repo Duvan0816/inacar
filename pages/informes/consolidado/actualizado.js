@@ -13,14 +13,34 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import LoadingModal from "@/components/loading";
 import informeStyles from "../../../src/styles/informe.js";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const csrftoken = getCookie("csrftoken"); 
+
 const ConsolidadoActualizado = () => {
+
   const [data, setData] = useState([]); // For the first dataset
   const [dataActual, setDataActual] = useState([]); // For the second dataset
   const [updatedRubros, setUpdatedRubros] = useState([]);
   const [updatedRubrosActualizado, setUpdatedRubrosActualizado] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
+  const fetchRubrosData = async () => {
+    const token = localStorage.getItem("token");
+    const rubrosResponse = await fetch(`${API_URL}/rubros/`, {
+      method: "GET",
+      headers: {
+        "X-CSRFToken": csrftoken,
+        Authorization: `Token ${token}`,
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    if (!rubrosResponse.ok) throw new Error(`HTTP error! Status: ${rubrosResponse.status}`);
+    return await rubrosResponse.json();
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -72,14 +92,14 @@ const ConsolidadoActualizado = () => {
       // Organize data
       const organizedProyectado = organizeGenericData(proyectadoData, "zones", "rubros");
       const organizedActualizado = organizeGenericData(actualizadoData, "zones", "rubros");
-  
-      setUpdatedRubros(proyectadoData[0]?.updatedRubros || []);
-      setUpdatedRubrosActualizado(actualizadoData[0]?.updatedRubros || []);
+      const rubrosData = await fetchRubrosData();
+      setUpdatedRubros(rubrosData);
+      setUpdatedRubrosActualizado(rubrosData);
+      // setUpdatedRubros(proyectadoData[0]?.updatedRubros || []);
+      // setUpdatedRubrosActualizado(actualizadoData[0]?.updatedRubros || []);
       setData(organizedProyectado);
       setDataActual(organizedActualizado);
-  
-      console.log("Organized data proyectado:", organizedProyectado);
-      console.log("Organized data actualizado:", organizedActualizado);
+
     } catch (err) {
       setError(err);
       console.error("Error al cargar los datos:", err);
@@ -403,7 +423,7 @@ const ConsolidadoActualizado = () => {
           <Accordion key={year} sx={{ marginBottom: "20px", width: "200%" }}>
             <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: "white" }} />}aria-controls={`panel-${year}-content`}id={`panel-${year}-header`}sx={{ background: "#a6a2a2" }}>
               <Typography sx={{ color: "white" }}>
-                INFORME DETALLADO DE RESULTADOS {year}
+                INFORME INICIAL VS ACTUALIZADO DE RESULTADOS {year}
               </Typography>
             </AccordionSummary>
             <AccordionDetails>
@@ -467,7 +487,7 @@ const ConsolidadoActualizado = () => {
                                 {actualizadoTotals.ingresosOperacionalesTotalActualizado.toLocaleString("es-ES",{minimumFractionDigits: 0,maximumFractionDigits: 0,})}
                               </Typography>
                               <Typography variant="caption"style={{ width: "25%" }}>
-                                {(proyectadoTotals.ingresosOperacionalesTotal  - actualizadoTotals.ingresosOperacionalesTotalActualizado).toLocaleString('es-ES')}
+                                {(proyectadoTotals.ingresosOperacionalesTotal  - actualizadoTotals.ingresosOperacionalesTotalActualizado || 0).toLocaleString('es-ES')}
                               </Typography>
                             </div>
                             <div style={informeStyles.textContent}>
@@ -524,7 +544,7 @@ const ConsolidadoActualizado = () => {
                                 {actualizadoTotals.gastosOperacionalesAdministrativosTotalActualizado.toLocaleString("es-ES",{minimumFractionDigits: 0,maximumFractionDigits: 0,})}
                               </Typography>
                               <Typography variant="caption"style={{ width: "25%" }}>
-                                {(proyectadoTotals.gastosOperacionalesAdministrativosTotal - actualizadoTotals.gastosOperacionalesAdministrativosTotalActualizado).toLocaleString('es-ES')}
+                                {(proyectadoTotals.gastosOperacionalesAdministrativosTotal - actualizadoTotals.gastosOperacionalesAdministrativosTotalActualizado || 0).toLocaleString('es-ES')}
                               </Typography>
                             </div>
                             <div style={informeStyles.textContent}>
@@ -632,7 +652,7 @@ const ConsolidadoActualizado = () => {
                                       {TotalsByZoneActualizado[zone]?.zonaingresosOperacionalesTotalActualizado?.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) || '0'}
                                     </Typography>
                                     <Typography variant="caption"style={{ width: "25%" }}>
-                                      {(totalsByZone[zone].zonaingresosOperacionalesTotal - TotalsByZoneActualizado[zone]?.zonaingresosOperacionalesTotalActualizado  || 0).toLocaleString('es-ES')}
+                                      {(totalsByZone[zone].zonaingresosOperacionalesTotal - (TotalsByZoneActualizado[zone]?.zonaingresosOperacionalesTotalActualizado || 0)).toLocaleString('es-ES')}
                                     </Typography>
                                   </div>
                                   <div style={informeStyles.textContent}>
@@ -646,7 +666,7 @@ const ConsolidadoActualizado = () => {
                                       {TotalsByZoneActualizado[zone]?.zonacostosIndirectosTotalActualizado.toLocaleString("es-ES",{minimumFractionDigits: 0,maximumFractionDigits: 0,}) || 0}
                                     </Typography>
                                     <Typography variant="caption"style={{ width: "25%" }}>
-                                      {(totalsByZone[zone].zonacostosIndirectosTotal - TotalsByZoneActualizado[zone]?.zonacostosIndirectosTotalActualizado || 0).toLocaleString("es-ES")}
+                                      {(totalsByZone[zone].zonacostosIndirectosTotal - (TotalsByZoneActualizado[zone]?.zonacostosIndirectosTotalActualizado || 0)).toLocaleString("es-ES")}
                                     </Typography>
                                   </div>
                                   <div style={informeStyles.textContent}>
@@ -660,7 +680,7 @@ const ConsolidadoActualizado = () => {
                                       {TotalsByZoneActualizado[zone]?.zonacostosDeVentaTotalActualizado.toLocaleString("es-ES",{minimumFractionDigits: 0,maximumFractionDigits: 0,}) || 0}
                                     </Typography>
                                     <Typography variant="caption"style={{ width: "25%" }}>
-                                      {(totalsByZone[zone].zonacostosDeVentaTotal - TotalsByZoneActualizado[zone]?.zonacostosDeVentaTotalActualizado || 0).toLocaleString("es-ES")}
+                                      {(totalsByZone[zone].zonacostosDeVentaTotal - (TotalsByZoneActualizado[zone]?.zonacostosDeVentaTotalActualizado || 0)).toLocaleString("es-ES")}
                                     </Typography>
                                   </div>
                                   <div
@@ -675,7 +695,7 @@ const ConsolidadoActualizado = () => {
                                       {TotalsByZoneActualizado[zone]?.zonautilidadBrutaActualizado.toLocaleString("es-ES",{minimumFractionDigits: 0,maximumFractionDigits: 0,}) || 0}
                                     </Typography>
                                     <Typography variant="caption"style={{ width: "25%" }}>
-                                      {(totalsByZone[zone].zonautilidadBruta - TotalsByZoneActualizado[zone]?.zonautilidadBrutaActualizado || 0).toLocaleString("es-ES")}
+                                      {(totalsByZone[zone].zonautilidadBruta - (TotalsByZoneActualizado[zone]?.zonautilidadBrutaActualizado || 0)).toLocaleString("es-ES")}
                                     </Typography>
                                   </div>
                                   <div style={informeStyles.textContent}>
@@ -689,7 +709,7 @@ const ConsolidadoActualizado = () => {
                                       {TotalsByZoneActualizado[zone]?.zonagastosOperacionalesAdministrativosTotalActualizado.toLocaleString("es-ES",{minimumFractionDigits: 0,maximumFractionDigits: 0,}) || 0}
                                     </Typography>
                                     <Typography variant="caption"style={{ width: "25%" }}>
-                                      {(totalsByZone[zone].zonagastosOperacionalesAdministrativosTotal - TotalsByZoneActualizado[zone]?.zonagastosOperacionalesAdministrativosTotalActualizado || 0).toLocaleString("es-ES")}
+                                      {(totalsByZone[zone].zonagastosOperacionalesAdministrativosTotal - (TotalsByZoneActualizado[zone]?.zonagastosOperacionalesAdministrativosTotalActualizado || 0)).toLocaleString("es-ES")}
                                     </Typography>
                                   </div>
                                   <div style={informeStyles.textContent}>
@@ -703,7 +723,7 @@ const ConsolidadoActualizado = () => {
                                       {TotalsByZoneActualizado[zone]?.zonagastosOperacionalesComercialesTotalActualizado.toLocaleString("es-ES",{minimumFractionDigits: 0,maximumFractionDigits: 0,}) || 0}
                                     </Typography>
                                     <Typography variant="caption"style={{ width: "25%" }}>
-                                      {(totalsByZone[zone].zonagastosOperacionalesComercialesTotal - TotalsByZoneActualizado[zone]?.zonagastosOperacionalesComercialesTotalActualizado || 0).toLocaleString("es-ES")}
+                                      {(totalsByZone[zone].zonagastosOperacionalesComercialesTotal - (TotalsByZoneActualizado[zone]?.zonagastosOperacionalesComercialesTotalActualizado || 0)).toLocaleString("es-ES")}
                                     </Typography>
                                   </div>
                                   <div
@@ -718,7 +738,7 @@ const ConsolidadoActualizado = () => {
                                       {TotalsByZoneActualizado[zone]?.zonautilidadPerdidaOperacionalActualizado.toLocaleString("es-ES",{minimumFractionDigits: 0,maximumFractionDigits: 0,}) || 0}
                                     </Typography>
                                     <Typography variant="caption"style={{ width: "25%" }}>
-                                      {(totalsByZone[zone].zonautilidadPerdidaOperacional - TotalsByZoneActualizado[zone]?.zonautilidadPerdidaOperacionalActualizado || 0).toLocaleString("es-ES")}
+                                      {(totalsByZone[zone].zonautilidadPerdidaOperacional - (TotalsByZoneActualizado[zone]?.zonautilidadPerdidaOperacionalActualizado || 0)).toLocaleString("es-ES")}
                                     </Typography>
                                   </div>
                                   <div style={informeStyles.textContent}>
@@ -732,7 +752,7 @@ const ConsolidadoActualizado = () => {
                                       {TotalsByZoneActualizado[zone]?.zonaingresosNoOperacionalesTotalActualizado.toLocaleString("es-ES",{minimumFractionDigits: 0,maximumFractionDigits: 0,}) || 0}
                                     </Typography>
                                     <Typography variant="caption"style={{ width: "25%" }}>
-                                      {(totalsByZone[zone].zonaingresosNoOperacionalesTotal - TotalsByZoneActualizado[zone]?.zonaingresosNoOperacionalesTotalActualizado || 0).toLocaleString("es-ES")}
+                                      {(totalsByZone[zone].zonaingresosNoOperacionalesTotal - (TotalsByZoneActualizado[zone]?.zonaingresosNoOperacionalesTotalActualizado || 0)).toLocaleString("es-ES")}
                                     </Typography>
                                   </div>
                                   <div style={informeStyles.textContent}>
@@ -746,7 +766,7 @@ const ConsolidadoActualizado = () => {
                                       {TotalsByZoneActualizado[zone]?.zonagastosNoOperacionalesTotalActualizado.toLocaleString("es-ES",{minimumFractionDigits: 0,maximumFractionDigits: 0,}) || 0}
                                     </Typography>
                                     <Typography variant="caption"style={{ width: "25%" }}>
-                                      {(totalsByZone[zone].zonagastosNoOperacionalesTotal - TotalsByZoneActualizado[zone]?.zonagastosNoOperacionalesTotalActualizado || 0).toLocaleString("es-ES")}
+                                      {(totalsByZone[zone].zonagastosNoOperacionalesTotal - (TotalsByZoneActualizado[zone]?.zonagastosNoOperacionalesTotalActualizado || 0)).toLocaleString("es-ES")}
                                     </Typography>
                                   </div>
                                   <div
@@ -761,7 +781,7 @@ const ConsolidadoActualizado = () => {
                                       {TotalsByZoneActualizado[zone]?.zonautilidadAntesDeImpuestoActualizado.toLocaleString("es-ES",{minimumFractionDigits: 0,maximumFractionDigits: 0,}) || 0}
                                     </Typography>
                                     <Typography variant="caption"style={{ width: "25%" }}>
-                                      {(totalsByZone[zone].zonautilidadAntesDeImpuesto - TotalsByZoneActualizado[zone]?.zonautilidadAntesDeImpuestoActualizado || 0).toLocaleString("es-ES")}
+                                      {(totalsByZone[zone].zonautilidadAntesDeImpuesto - (TotalsByZoneActualizado[zone]?.zonautilidadAntesDeImpuestoActualizado || 0)).toLocaleString("es-ES")}
                                     </Typography>
                                   </div>
                                 </div>

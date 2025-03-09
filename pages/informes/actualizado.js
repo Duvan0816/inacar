@@ -8,18 +8,21 @@ import informeStyles from "../../src/styles/informe.js";
 import * as XLSX from "xlsx";
 import { Button } from "@mui/material";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const csrftoken = getCookie("csrftoken");
+
 const Actualizado = () => {
   const [data, setData] = useState([]);
   const [updatedRubros, setUpdatedRubros] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isTotalVisible, setIsTotalVisible] = useState(true);
-  const [isUtilidadVisible, setIsUtilidadVisible] = useState(true);
+  const [isTotalVisible, setIsTotalVisible] = useState(false);
+  const [isUtilidadVisible, setIsUtilidadVisible] = useState(false);
   const [isRubroVisible, setIsRubroVisible] = useState(false);
   const [isSubrubroVisible, setIsSubrubroVisible] = useState(false);
   const [isAuxiliarVisible, setIsAuxiliarVisible] = useState(false);
   const [isCuentaVisible, setIsCuentaVisible] = useState(false);
-  const [applyPercentage, setApplyPercentage] = useState(true);
+  const [applyPercentage, setApplyPercentage] = useState(false);
 
   const handleTotalToggle = () => {
     setIsTotalVisible(!isTotalVisible);
@@ -35,6 +38,7 @@ const Actualizado = () => {
     const organizedData = {};
 
     data.forEach((item) => {
+
       const year = new Date(item.fecha).getFullYear();
       const uen = item.uen;
       const zone = item.cuenta.regional;
@@ -43,10 +47,13 @@ const Actualizado = () => {
       const auxiliarIndex = item.auxiliar;
       const cuentaCodigo = item.cuenta.codigo;
       const cuentaNombre = item.cuenta.nombre.trim();
+      const presupuestoMeses = item.meses_presupuesto;
+
       // Sumar todos los valores de presupuestomes en meses_presupuesto
       const totalPresupuestoMes = item.meses_presupuesto.reduce((total, mes) => {
         return total + parseFloat(mes.presupuestomes);
       }, 0);
+      
       // Initialize data structure
       if (!organizedData[year]) organizedData[year] = {};
       if (!organizedData[year][uen]) organizedData[year][uen] = { total: 0, zones: {} };
@@ -77,9 +84,16 @@ const Actualizado = () => {
         cuentaAgrupada[cuentaCodigo] = {
           nombre: cuentaNombre,
           total: 0,
+          meses_presupuesto: Array(12).fill(0),
         };
       }
       cuentaAgrupada[cuentaCodigo].total += totalPresupuestoMes;
+
+      presupuestoMeses.forEach(({ meses, presupuestomes }) => {
+        if (meses >= 0 && meses < 12) {
+          cuentaAgrupada[cuentaCodigo].meses_presupuesto[meses] += parseFloat(presupuestomes || 0);
+        }
+      });
 
       // Update subrubro and auxiliar totals regardless of exclusion
       organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex].auxiliares[auxiliarIndex].total += totalPresupuestoMes;
@@ -95,6 +109,22 @@ const Actualizado = () => {
       }
     });
     return organizedData;
+  };
+
+  const fetchRubrosData = async () => {
+    const token = localStorage.getItem("token");
+    const rubrosResponse = await fetch(`${API_URL}/rubros/`, {
+      method: "GET",
+      headers: {
+        "X-CSRFToken": csrftoken,
+        Authorization: `Token ${token}`,
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    if (!rubrosResponse.ok) throw new Error(`HTTP error! Status: ${rubrosResponse.status}`);
+    return await rubrosResponse.json();
   };
 
   const fetchData = async () => {
@@ -128,19 +158,20 @@ const Actualizado = () => {
         }
   
         const data = await presupuestosResponse.json();
-        console.log("Data:", data);
-        allData = [...allData, ...data.results]; // Concatenate new data
+        allData = [...allData, ...data.results];
 
         totalPages = Math.ceil(data.count / 3000); 
-        page++; // Move to the next page
+        page++;
       } while (page <= totalPages);
-      
-      setUpdatedRubros(allData[0].updatedRubros);
+
+      const rubrosData = await fetchRubrosData();
+      setUpdatedRubros(rubrosData);
+
       const organizedData = organizeData(allData);
       setData(organizedData);
     } catch (error) {
       console.error("Fetch error:", error);
-      setError(error.message); // Guardar el mensaje de error en el estado
+      setError(error.message);
     } finally {
       setLoading(false);
     }
@@ -400,7 +431,7 @@ const Actualizado = () => {
               sx={{ background: "#a6a2a2" }}
             >
               <Typography sx={{ color: "white" }}>
-                INFORME DETALLADO DE RESULTADOS {year}
+                INFORME INICIAL DE RESULTADOS {year}
               </Typography>
             </AccordionSummary>
             <AccordionDetails>
@@ -841,126 +872,43 @@ const Actualizado = () => {
     // Organize the data for each UEN and its detailed structure
     Object.entries(data).forEach(([year, uens]) => {
       Object.entries(uens).forEach(([uen, { total: uenTotal, zones }]) => {
-        // Variables to keep track of the current year and UEN for each row
         let currentYear = year;
         let currentUEN = uen;
-  
-        // Add a row for the UEN summary
-        formattedData.push({ 
-          Año: currentYear, 
-          UEN: currentUEN, 
-          Zona: "", 
-          CR: "",
-          Rubro: "", 
-          CS: "",
-          Subrubro: "", 
-          CA: "",
-          Auxiliar: "", 
-          CC: "",
-          "Centro Costos": "", 
-          Totales: uenTotal 
-        });
   
         Object.entries(zones).forEach(([zone, { total: zoneTotal, rubros }]) => {
           let currentZone = zone;
   
-          // Add a row for each zone within the UEN
-          formattedData.push({ 
-            Año: currentYear,
-            UEN: currentUEN, 
-            Zona: currentZone, 
-            CR: "", 
-            Rubro: "", 
-            CS: "",
-            Subrubro: "", 
-            CA: "",
-            Auxiliar: "", 
-            CC: "", 
-            "Centro Costos": "", 
-            Totales: zoneTotal 
-          });
-  
           Object.entries(rubros).forEach(([rubroIndex, rubroData]) => {
-            const rubroName = updatedRubros[rubroIndex]?.nombre;
-            const rubroCodigo = updatedRubros[rubroIndex]?.codigo;
-            let currentRubroCodigo = rubroCodigo;
-            let currentRubroName = rubroName;
-  
-            // Add a row for each rubro within the zone
-            formattedData.push({ 
-              Año: currentYear,
-              UEN: currentUEN, 
-              Zona: currentZone, 
-              CR: currentRubroCodigo, 
-              Rubro: currentRubroName, 
-              CS: "",
-              Subrubro: "",
-              CA: "", 
-              Auxiliar: "", 
-              CC: "", 
-              "Centro Costos": "", 
-              Totales: rubroData.total 
-            });
-  
             Object.entries(rubroData.subrubros).forEach(([subrubroIndex, subrubroData]) => {
-              const subrubroName = updatedRubros[rubroIndex]?.subrubros?.[subrubroIndex]?.nombre;
-              const subrubroCodigo = updatedRubros[rubroIndex]?.subrubros?.[subrubroIndex]?.codigo;
-              let currentSubrubroName = subrubroName;
-              let currentSubrubroCodigo = subrubroCodigo;
-  
-              // Add a row for each subrubro within the rubro
-              formattedData.push({ 
-                Año: currentYear,
-                UEN: currentUEN, 
-                Zona: currentZone, 
-                CR: currentRubroCodigo, 
-                Rubro: currentRubroName, 
-                CS: currentSubrubroCodigo,
-                Subrubro: currentSubrubroName, 
-                CA: "",
-                Auxiliar: "", 
-                CC: "", 
-                "Centro Costos": "", 
-                Totales: subrubroData.total 
-              });
-  
               Object.entries(subrubroData.auxiliares).forEach(([auxiliarIndex, auxiliarData]) => {
-                const auxiliarName = updatedRubros[rubroIndex]?.subrubros?.[subrubroIndex]?.auxiliares?.[auxiliarIndex]?.nombre;
-                const auxiliarCodigo = updatedRubros[rubroIndex]?.subrubros?.[subrubroIndex]?.auxiliares?.[auxiliarIndex]?.codigo;
-                let currentAuxiliarName = auxiliarName;
-                let currentAuxiliarCodigo = auxiliarCodigo;
-  
-                // Add a row for each auxiliar within the subrubro
-                formattedData.push({ 
-                  Año: currentYear,
-                  UEN: currentUEN, 
-                  Zona: currentZone, 
-                  CR: currentRubroCodigo,
-                  Rubro: currentRubroName, 
-                  CS: currentSubrubroCodigo,
-                  Subrubro: currentSubrubroName, 
-                  CA: currentAuxiliarCodigo,
-                  Auxiliar: currentAuxiliarName, 
-                  CC: "", 
-                  "Centro Costos": "", 
-                  Totales: auxiliarData.total 
-                });
-  
                 Object.entries(auxiliarData.cuentas).forEach(([cuentaCodigo, cuentaData]) => {
-                  // Add a row for each cuenta within the auxiliar
+
+                  const monthlyValues = cuentaData.meses_presupuesto || [];
                   formattedData.push({
                     Año: currentYear,
                     UEN: currentUEN,
                     Zona: currentZone,
-                    CR: currentRubroCodigo,
-                    Rubro: currentRubroName, 
-                    CS: currentSubrubroCodigo,
-                    Subrubro: currentSubrubroName, 
-                    CA: currentAuxiliarCodigo,
-                    Auxiliar: currentAuxiliarName, 
-                    "CC": cuentaCodigo,
+                    CR: updatedRubros[rubroIndex]?.codigo || "",
+                    Rubro: updatedRubros[rubroIndex]?.nombre || "",
+                    CS: updatedRubros[rubroIndex]?.subrubros?.[subrubroIndex]?.codigo || "",
+                    Subrubro: updatedRubros[rubroIndex]?.subrubros?.[subrubroIndex]?.nombre || "",
+                    CA: updatedRubros[rubroIndex]?.subrubros?.[subrubroIndex]?.auxiliares?.[auxiliarIndex]?.codigo || "",
+                    Auxiliar: updatedRubros[rubroIndex]?.subrubros?.[subrubroIndex]?.auxiliares?.[auxiliarIndex]?.nombre || "",
+                    CC: cuentaCodigo,
                     "Centro Costos": cuentaData.nombre,
-                    Totales: cuentaData.total
+                    Totales: cuentaData.total,
+                    Enero: monthlyValues[0],
+                    Febrero: monthlyValues[1],
+                    Marzo: monthlyValues[2],
+                    Abril: monthlyValues[3],
+                    Mayo: monthlyValues[4],
+                    Junio: monthlyValues[5],
+                    Julio: monthlyValues[6],
+                    Agosto: monthlyValues[7],
+                    Septiembre: monthlyValues[8],
+                    Octubre: monthlyValues[9],
+                    Noviembre: monthlyValues[10],
+                    Diciembre: monthlyValues[11],
                   });
                 });
               });
@@ -974,13 +922,41 @@ const Actualizado = () => {
     });
   
     // Create a new workbook and add the data
-    const worksheet = XLSX.utils.json_to_sheet(formattedData, { header: ["Año", "UEN", "Zona", "CR", "Rubro", "CS", "Subrubro", "CA", "Auxiliar", "CC", "Centro Costos", "Totales"] });
+    const worksheet = XLSX.utils.json_to_sheet(formattedData, {
+      header: [
+        "Año",
+        "UEN",
+        "Zona",
+        "CR",
+        "Rubro",
+        "CS",
+        "Subrubro",
+        "CA",
+        "Auxiliar",
+        "CC",
+        "Centro Costos",
+        "Totales",
+        "Enero",
+        "Febrero",
+        "Marzo",
+        "Abril",
+        "Mayo",
+        "Junio",
+        "Julio",
+        "Agosto",
+        "Septiembre",
+        "Octubre",
+        "Noviembre",
+        "Diciembre",
+      ],
+    });
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Informe Detallado");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Informe Actualizado");
   
     // Export to Excel
-    XLSX.writeFile(workbook, `Informe_Detallado_${new Date().getFullYear()}.xlsx`);
-  };  
+    XLSX.writeFile(workbook, `Informe_Actualizado_${new Date().getFullYear()}.xlsx`);
+  };
+  
 
   return (
     <div style={{ display: "flex", flexDirection: "row" }}>
@@ -992,7 +968,7 @@ const Actualizado = () => {
             <FormControlLabel
               key="total" // Unique key
               control={<Checkbox checked={isTotalVisible}onChange={handleTotalToggle}color="primary"style={{ marginLeft: "10px" }}/>}
-              label="Ver Totales"
+              label="Totales"
             />
             <FormControlLabel
               key="utilidad" // Unique key

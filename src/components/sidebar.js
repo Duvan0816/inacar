@@ -212,7 +212,6 @@ const Sidebar = () => {
                   </ListItem>
               
                   <div>
-
                     <Collapse in={openConsolidado} timeout="auto" unmountOnExit>
                       <List component="div" disablePadding style={{ display: 'flex', flexDirection: 'column',marginLeft: 20 }}>
                         <ListItem button selected={selectedItem === 'ActualizadoC'} onClick={() => handleItemClick('Actualizadoc', '/informes/consolidado/actualizado')} sx={router.pathname === "/uen/constructora" ? SidebarStyle.item : router.pathname === '/uen/inmobiliaria' ? SidebarStyle.itemInmobiliaria : router.pathname === "/uen/unidad-apoyo" ? SidebarStyle.itemUA : SidebarStyle.item}>
@@ -225,12 +224,12 @@ const Sidebar = () => {
                     </Collapse>
                   </div>
              
-                  <ListItem button selected={selectedItem === 'Preventas'} onClick={() => handleItemClick('preventas', '/informes/preventas')} sx={router.pathname === "/uen/constructora" ? SidebarStyle.item : router.pathname === '/uen/inmobiliaria' ? SidebarStyle.itemInmobiliaria : router.pathname === "/uen/unidad-apoyo" ? SidebarStyle.itemUA : SidebarStyle.item}>
+                  {/* <ListItem button selected={selectedItem === 'Preventas'} onClick={() => handleItemClick('preventas', '/informes/preventas')} sx={router.pathname === "/uen/constructora" ? SidebarStyle.item : router.pathname === '/uen/inmobiliaria' ? SidebarStyle.itemInmobiliaria : router.pathname === "/uen/unidad-apoyo" ? SidebarStyle.itemUA : SidebarStyle.item}>
                     <ListItemText primary="Preventas" />
                   </ListItem>
                   <ListItem button selected={selectedItem === 'Escrituracion'} onClick={() => handleItemClick('escrituracion', '/informes/escrituracion')} sx={router.pathname === "/uen/constructora" ? SidebarStyle.item : router.pathname === '/uen/inmobiliaria' ? SidebarStyle.itemInmobiliaria : router.pathname === "/uen/unidad-apoyo" ? SidebarStyle.itemUA : SidebarStyle.item}>
                     <ListItemText primary="Escrituracion" />
-                  </ListItem>
+                  </ListItem> */}
                 </div>
               </List>
             </Collapse>
