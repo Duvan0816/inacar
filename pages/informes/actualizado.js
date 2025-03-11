@@ -33,83 +33,6 @@ const Actualizado = () => {
   const handleApplyPercentageToggle = (event) => {
     setApplyPercentage(event.target.checked);
   };
-  
-  // const organizeData = (data) => {
-  //   const organizedData = {};
-
-  //   data.forEach((item) => {
-
-  //     const year = new Date(item.fecha).getFullYear();
-  //     const uen = item.uen;
-  //     const zone = item.cuenta.regional;
-  //     const rubroIndex = item.rubro;
-  //     const subrubroIndex = item.subrubro;
-  //     const auxiliarIndex = item.auxiliar;
-  //     const cuentaCodigo = item.cuenta.codigo;
-  //     const cuentaNombre = item.cuenta.nombre.trim();
-  //     const presupuestoMeses = item.meses_presupuesto;
-
-  //     // Sumar todos los valores de presupuestomes en meses_presupuesto
-  //     const totalPresupuestoMes = item.meses_presupuesto.reduce((total, mes) => {
-  //       return total + parseFloat(mes.presupuestomes);
-  //     }, 0);
-      
-  //     // Initialize data structure
-  //     if (!organizedData[year]) organizedData[year] = {};
-  //     if (!organizedData[year][uen]) organizedData[year][uen] = { total: 0, zones: {} };
-  //     if (!organizedData[year][uen].zones[zone]) organizedData[year][uen].zones[zone] = { total: 0, rubros: {} };
-  //     if (!organizedData[year][uen].zones[zone].rubros[rubroIndex]) {
-  //       organizedData[year][uen].zones[zone].rubros[rubroIndex] = {
-  //         total: 0,
-  //         subrubros: {},
-  //       };
-  //     }
-  
-  //     if (!organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex]) {
-  //       organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex] = {
-  //         total: 0,
-  //         auxiliares: {},
-  //       };
-  //     }
-  //     if (!organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex].auxiliares[auxiliarIndex]) {
-  //       organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex].auxiliares[auxiliarIndex] = {
-  //         total: 0,
-  //         cuentas: {},
-  //       };
-  //     }
-  
-  //     // Group by cuentaCodigo
-  //     const cuentaAgrupada = organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex].auxiliares[auxiliarIndex].cuentas;
-  //     if (!cuentaAgrupada[cuentaCodigo]) {
-  //       cuentaAgrupada[cuentaCodigo] = {
-  //         nombre: cuentaNombre,
-  //         total: 0,
-  //         meses_presupuesto: Array(12).fill(0),
-  //       };
-  //     }
-  //     cuentaAgrupada[cuentaCodigo].total += totalPresupuestoMes;
-
-  //     presupuestoMeses.forEach(({ meses, presupuestomes }) => {
-  //       if (meses >= 0 && meses < 12) {
-  //         cuentaAgrupada[cuentaCodigo].meses_presupuesto[meses] += parseFloat(presupuestomes || 0);
-  //       }
-  //     });
-
-  //     // Update subrubro and auxiliar totals regardless of exclusion
-  //     organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex].auxiliares[auxiliarIndex].total += totalPresupuestoMes;
-  //     organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex].total += totalPresupuestoMes;
-
-  //     if (rubroIndex === 3 && subrubroIndex === 14) {
-
-  //     } else {
-  //       // Agregar a los totales de rubro, zona y UEN si no es "HONORARIOS INTERNOS"
-  //       organizedData[year][uen].zones[zone].rubros[rubroIndex].total += totalPresupuestoMes;
-  //       organizedData[year][uen].zones[zone].total += totalPresupuestoMes;
-  //       organizedData[year][uen].total += totalPresupuestoMes;
-  //     }
-  //   });
-  //   return organizedData;
-  // };
 
   const fetchRubrosData = async () => {
     const token = localStorage.getItem("token");
@@ -301,6 +224,7 @@ const Actualizado = () => {
   
     return totalsByZone;
   };
+  
   const yearPercentages = {
     2024: {
       nacionalConstructora: 0.4,
@@ -319,6 +243,7 @@ const Actualizado = () => {
       diferenteNacionalInmobiliaria: 0.1,
     },
   };
+
   const renderData = (data) => {
     return Object.entries(data).map(([year, uens]) => {
 
