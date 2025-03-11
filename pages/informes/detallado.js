@@ -22,7 +22,7 @@ const Detallado = () => {
   const [isSubrubroVisible, setIsSubrubroVisible] = useState(false);
   const [isAuxiliarVisible, setIsAuxiliarVisible] = useState(false);
   const [isCuentaVisible, setIsCuentaVisible] = useState(false);
-  const [applyPercentage, setApplyPercentage] = useState(false);
+  const [applyPercentage, setApplyPercentage] = useState(true);
 
   const handleTotalToggle = () => {
     setIsTotalVisible(!isTotalVisible);
@@ -224,6 +224,7 @@ const Detallado = () => {
   
     return totalsByZone;
   };
+  
   const yearPercentages = {
     2024: {
       nacionalConstructora: 0.4,
@@ -242,6 +243,7 @@ const Detallado = () => {
       diferenteNacionalInmobiliaria: 0.1,
     },
   };
+
   const renderData = (data) => {
     return Object.entries(data).map(([year, uens]) => {
 
