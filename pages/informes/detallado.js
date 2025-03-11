@@ -16,8 +16,8 @@ const Detallado = () => {
   const [updatedRubros, setUpdatedRubros] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isTotalVisible, setIsTotalVisible] = useState(false);
-  const [isUtilidadVisible, setIsUtilidadVisible] = useState(false);
+  const [isTotalVisible, setIsTotalVisible] = useState(true);
+  const [isUtilidadVisible, setIsUtilidadVisible] = useState(true);
   const [isRubroVisible, setIsRubroVisible] = useState(false);
   const [isSubrubroVisible, setIsSubrubroVisible] = useState(false);
   const [isAuxiliarVisible, setIsAuxiliarVisible] = useState(false);
@@ -32,83 +32,6 @@ const Detallado = () => {
   };
   const handleApplyPercentageToggle = (event) => {
     setApplyPercentage(event.target.checked);
-  };
-  
-  const organizeData = (data) => {
-    const organizedData = {};
-
-    data.forEach((item) => {
-
-      const year = new Date(item.fecha).getFullYear();
-      const uen = item.uen;
-      const zone = item.cuenta.regional;
-      const rubroIndex = item.rubro;
-      const subrubroIndex = item.subrubro;
-      const auxiliarIndex = item.auxiliar;
-      const cuentaCodigo = item.cuenta.codigo;
-      const cuentaNombre = item.cuenta.nombre.trim();
-      const presupuestoMeses = item.meses_presupuesto;
-
-      // Sumar todos los valores de presupuestomes en meses_presupuesto
-      const totalPresupuestoMes = item.meses_presupuesto.reduce((total, mes) => {
-        return total + parseFloat(mes.presupuestomes);
-      }, 0);
-      
-      // Initialize data structure
-      if (!organizedData[year]) organizedData[year] = {};
-      if (!organizedData[year][uen]) organizedData[year][uen] = { total: 0, zones: {} };
-      if (!organizedData[year][uen].zones[zone]) organizedData[year][uen].zones[zone] = { total: 0, rubros: {} };
-      if (!organizedData[year][uen].zones[zone].rubros[rubroIndex]) {
-        organizedData[year][uen].zones[zone].rubros[rubroIndex] = {
-          total: 0,
-          subrubros: {},
-        };
-      }
-  
-      if (!organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex]) {
-        organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex] = {
-          total: 0,
-          auxiliares: {},
-        };
-      }
-      if (!organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex].auxiliares[auxiliarIndex]) {
-        organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex].auxiliares[auxiliarIndex] = {
-          total: 0,
-          cuentas: {},
-        };
-      }
-  
-      // Group by cuentaCodigo
-      const cuentaAgrupada = organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex].auxiliares[auxiliarIndex].cuentas;
-      if (!cuentaAgrupada[cuentaCodigo]) {
-        cuentaAgrupada[cuentaCodigo] = {
-          nombre: cuentaNombre,
-          total: 0,
-          meses_presupuesto: Array(12).fill(0),
-        };
-      }
-      cuentaAgrupada[cuentaCodigo].total += totalPresupuestoMes;
-
-      presupuestoMeses.forEach(({ meses, presupuestomes }) => {
-        if (meses >= 0 && meses < 12) {
-          cuentaAgrupada[cuentaCodigo].meses_presupuesto[meses] += parseFloat(presupuestomes || 0);
-        }
-      });
-
-      // Update subrubro and auxiliar totals regardless of exclusion
-      organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex].auxiliares[auxiliarIndex].total += totalPresupuestoMes;
-      organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex].total += totalPresupuestoMes;
-
-      if (rubroIndex === 3 && subrubroIndex === 14) {
-
-      } else {
-        // Agregar a los totales de rubro, zona y UEN si no es "HONORARIOS INTERNOS"
-        organizedData[year][uen].zones[zone].rubros[rubroIndex].total += totalPresupuestoMes;
-        organizedData[year][uen].zones[zone].total += totalPresupuestoMes;
-        organizedData[year][uen].total += totalPresupuestoMes;
-      }
-    });
-    return organizedData;
   };
 
   const fetchRubrosData = async () => {
@@ -134,41 +57,31 @@ const Detallado = () => {
       const token = localStorage.getItem("token");
       const API_URL =
         process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      let allData = [];
-      let page = 1;
-      let totalPages = 1;
-      do {
-        const presupuestosResponse = await fetch(
-          `${API_URL}/InformeDetalladoPresupuesto/?page=${page}`,
-          {
-            method: "GET",
-            headers: {
-              "X-CSRFToken": csrftoken,
-              Authorization: `Token ${token}`,
-              "Content-Type": "application/json",
-            },
-            credentials: "include",
-          }
-        );
-  
-        if (!presupuestosResponse.ok) {
-          const errorText = await presupuestosResponse.text();
-          console.error("Error Response Text:", errorText);
-          throw new Error(`HTTP error! Status: ${presupuestosResponse.status}`);
+      
+      const presupuestosResponse = await fetch(
+        `${API_URL}/InformeDetalladoPresupuesto/`,
+        {
+          method: "GET",
+          headers: {
+            "X-CSRFToken": csrftoken,
+            Authorization: `Token ${token}`,
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
         }
+      );
   
-        const data = await presupuestosResponse.json();
-        allData = [...allData, ...data.results];
-
-        totalPages = Math.ceil(data.count / 3000); 
-        page++;
-      } while (page <= totalPages);
+      if (!presupuestosResponse.ok) {
+        const errorText = await presupuestosResponse.text();
+        console.error("Error Response Text:", errorText);
+        throw new Error(`HTTP error! Status: ${presupuestosResponse.status}`);
+      }
+  
+      const data = await presupuestosResponse.json();
+      setData(data);
 
       const rubrosData = await fetchRubrosData();
       setUpdatedRubros(rubrosData);
-
-      const organizedData = organizeData(allData);
-      setData(organizedData);
     } catch (error) {
       console.error("Fetch error:", error);
       setError(error.message);
@@ -176,7 +89,7 @@ const Detallado = () => {
       setLoading(false);
     }
   };
-
+  
   useEffect(() => {
     fetchData();
   }, []);
@@ -422,8 +335,8 @@ const Detallado = () => {
       const sumInmobiliaria = sumZonesForUEN(otherZonesShareInmobiliaria);
 
       return (
-          <div key={year}>
-          <Accordion key={year} sx={{ marginBottom: "20px" }}>
+          <div key={`year-${year}`}>
+          <Accordion sx={{ marginBottom: "20px" }}>
             <AccordionSummary
               expandIcon={<ExpandMoreIcon sx={{ color: "white" }} />}
               aria-controls={`panel-${year}-content`}
@@ -549,7 +462,7 @@ const Detallado = () => {
                   }
 
                   return (
-                    <div key={uen} style={{ flex: "1 1 20%", margin: "0.2px" }}>
+                    <div key={`uen-${uen}`} style={{ flex: "1 1 20%", margin: "0.2px" }}>
                       <h4>
                         <div style={uen == "Constructora"? informeStyles.uenConstructora: uen == "Inmobiliaria"? informeStyles.uenInmobiliaria: uen == "Unidades de Apoyo"? informeStyles.uenUA: informeStyles.uen}>
                           <Typography sx={{ color: "white" }}>{uen}:</Typography>
@@ -665,7 +578,7 @@ const Detallado = () => {
                         return (
                           <div key={zone}>
                             <h5>
-                              <div style={uen === "Constructora"? informeStyles.uenConstructora: uen === "Inmobiliaria"? informeStyles.uenInmobiliaria: uen === "Unidades de Apoyo"? informeStyles.uenUA: informeStyles.uen}>
+                              <div key={`zone-${zone}`} style={uen === "Constructora"? informeStyles.uenConstructora: uen === "Inmobiliaria"? informeStyles.uenInmobiliaria: uen === "Unidades de Apoyo"? informeStyles.uenUA: informeStyles.uen}>
                                 <Typography sx={{ color: "white" }}>
                                   {zone}:
                                 </Typography>
@@ -758,7 +671,7 @@ const Detallado = () => {
                                   ([rubroIndex, { total, subrubros }]) => {
                                     const rubro = updatedRubros[rubroIndex];
                                     return (
-                                      <div style={{ margin: "10px" }}key={rubroIndex}>
+                                      <div style={{ margin: "10px" }} key={`rubro-${rubroIndex}`}>
                                         <div
                                           style={uen == "Constructora"? informeStyles.containerRConstructora: uen == "Inmobiliaria"? informeStyles.containerRInmobiliaria: uen =="Unidades de Apoyo"? informeStyles.containerRUA: informeStyles.containerR}>
                                           <Typography variant="caption" fontWeight='bold'>
@@ -777,7 +690,7 @@ const Detallado = () => {
                                               ([subrubroIndex, {total: subrubroTotal, auxiliares,},]) => {
                                                 const subrubro = rubro.subrubros[subrubroIndex];
                                                 return (
-                                                  <div key={subrubroIndex}>
+                                                  <div key={`subrubro-${subrubroIndex}`}>
                                                     <div
                                                         style={uen == "Constructora"? informeStyles.containerSRConstructora: uen == "Inmobiliaria"? informeStyles.containerSRInmobiliaria: uen =="Unidades de Apoyo"? informeStyles.containerSRUA: informeStyles.containerSR}>
                                                       <Typography variant="caption">
@@ -803,7 +716,7 @@ const Detallado = () => {
                                                           ]) => {
                                                             const auxiliar = subrubro.auxiliares[auxIndex];
                                                             return (
-                                                              <div key={auxIndex}>
+                                                              <div key={`auxiliar-${auxIndex}`}>
                                                                 <div
                                                                   style={uen == "Constructora"? informeStyles.containerAConstructora: uen == "Inmobiliaria"? informeStyles.containerAInmobiliaria: uen =="Unidades de Apoyo"? informeStyles.containerAUA: informeStyles.containerA}>
                                                                   <Typography variant="caption">
@@ -819,10 +732,10 @@ const Detallado = () => {
                                                                   <div>
                                                                     {Object.entries(cuentas).map(
                                                                       ([codigo, {nombre, total,},]) => (
-                                                                        <div
+                                                                        <div key={`cuenta-${codigo}`}
                                                                           style={uen =="Constructora"? informeStyles.containerCCConstructora: uen =="Inmobiliaria"? informeStyles.containerCCInmobiliaria: uen =="Unidades de Apoyo"? informeStyles.containerCCUA: informeStyles.containerCC}>
                                                                           <Typography variant="caption">
-                                                                            {codigo}{nombre}:
+                                                                            {codigo} {nombre}:
                                                                           </Typography>
                                                                           {isTotalVisible && (
                                                                             <Typography variant="caption">
