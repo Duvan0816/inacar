@@ -59,7 +59,7 @@ const Actualizado = () => {
         process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
       
       const presupuestosResponse = await fetch(
-        `${API_URL}/Actualizado/`,
+        `${API_URL}/InformePresupuestoActualizado/`,
         {
           method: "GET",
           headers: {
@@ -346,7 +346,7 @@ const Actualizado = () => {
               sx={{ background: "#a6a2a2" }}
             >
               <Typography sx={{ color: "white" }}>
-                INFORME INICIAL DE RESULTADOS {year}
+                INFORME ACTUALIZADO DE RESULTADOS {year}
               </Typography>
             </AccordionSummary>
             <AccordionDetails>

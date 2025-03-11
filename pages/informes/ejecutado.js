@@ -346,7 +346,7 @@ const Ejecutado = () => {
               sx={{ background: "#a6a2a2" }}
             >
               <Typography sx={{ color: "white" }}>
-                INFORME INICIAL DE RESULTADOS {year}
+                INFORME EJECUTADO DE RESULTADOS {year}
               </Typography>
             </AccordionSummary>
             <AccordionDetails>
