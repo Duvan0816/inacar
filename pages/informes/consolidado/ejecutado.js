@@ -89,7 +89,7 @@ const EjecutadoConsolidado = () => {
     fetchData();
   }, []);
 
-  const calculateTotalsProyectado = (zones) => {
+  const calculateTotalsProyectado = (zones, updatedRubros) => {
     const totals = {
       ingresosOperacionalesTotal: 0,
       costosIndirectosTotal: 0,
@@ -148,7 +148,7 @@ const EjecutadoConsolidado = () => {
     return { ...totals, utilidadBruta, utilidadoPerdidaOperacional, utilidadAntesDeImpuesto };
   };
   
-  const calculateTotalsActualizado = (zones) => {
+  const calculateTotalsActualizado = (zones, updatedRubrosActualizado) => {
   
     let ingresosOperacionalesTotalActualizado = 0;
     let costosIndirectosTotalActualizado = 0;
@@ -212,7 +212,7 @@ const EjecutadoConsolidado = () => {
   };
   
   
-  const calculateTotalsByZoneActualizado = (zones,updatedRubrosActualizado) => {
+  const calculateTotalsByZoneActualizado = (zones, updatedRubrosActualizado) => {
     const TotalsByZoneActualizado = {};
 
     // Iterate over zones and rubros to calculate totals by zone
