@@ -49,120 +49,46 @@ const ConsolidadoActualizado = () => {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
   
       const fetchDataset = async (endpoint) => {
-        let allData = [];
-        let page = 1;
-        let totalPages = 1;
-  
-        do {
-          const response = await fetch(`${API_URL}/${endpoint}/?page=${page}`, {
-            headers: {
-              "X-CSRFToken": csrftoken,
-              Authorization: `Token ${token}`,
-              "Content-Type": "application/json",
-            },
-          });
-  
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error("Error Response Text:", errorText);
-            throw new Error(`HTTP error! Status: ${response.status}`);
-          }
-  
-          try {
-            const data = await response.json();
-            allData = [...allData, ...data.results];
-            totalPages = Math.ceil(data.count / 3000);
-          } catch (err) {
-            console.error("Failed to parse JSON:", err);
-            throw new Error("Invalid JSON response");
-          }
-  
-          page++;
-        } while (page <= totalPages);
-  
-        return allData;
+        const response = await fetch(`${API_URL}/${endpoint}/`, {
+          headers: {
+            "X-CSRFToken": csrftoken,
+            Authorization: `Token ${token}`,
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Error Response Text:", errorText);
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return await response.json();
       };
   
       // Fetch both datasets
       const [proyectadoData, actualizadoData] = await Promise.all([
         fetchDataset("InformeDetalladoPresupuesto"),
-        fetchDataset("Actualizado"),
+        fetchDataset("InformePresupuestoActualizado"),
       ]);
-  
-      // Organize data
-      const organizedProyectado = organizeGenericData(proyectadoData, "zones", "rubros");
-      const organizedActualizado = organizeGenericData(actualizadoData, "zones", "rubros");
+
+      setData(proyectadoData);
+      setDataActual(actualizadoData);
+
       const rubrosData = await fetchRubrosData();
       setUpdatedRubros(rubrosData);
       setUpdatedRubrosActualizado(rubrosData);
-      // setUpdatedRubros(proyectadoData[0]?.updatedRubros || []);
-      // setUpdatedRubrosActualizado(actualizadoData[0]?.updatedRubros || []);
-      setData(organizedProyectado);
-      setDataActual(organizedActualizado);
-
     } catch (err) {
-      setError(err);
       console.error("Error al cargar los datos:", err);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
-  };  
+  };    
   
   useEffect(() => {
     fetchData();
   }, []);
-
-  const organizeGenericData = (data, zoneKey = "zones", rubroKey = "rubros") => {
-    const organizedData = {};
-  
-    data.forEach((item) => {
-      const year = new Date(item.fecha).getFullYear();
-      const uen = item.uen || "Desconocido";
-      const zone = item.cuenta?.regional || "Desconocido";
-      const rubroIndex = item.rubro;
-      const subrubroIndex = item.subrubro;
-      const auxiliarIndex = item.auxiliar;
-      const cuentaCodigo = item.cuenta?.codigo;
-      const cuentaNombre = item.cuenta?.nombre?.trim() || "Sin nombre";
-  
-      const totalPresupuestoMes = item.meses_presupuesto?.reduce(
-        (total, mes) => total + parseFloat(mes.presupuestomes || 0),
-        0
-      ) || 0;
-  
-      if (!organizedData[year]) organizedData[year] = {};
-      if (!organizedData[year][uen]) organizedData[year][uen] = { total: 0, [zoneKey]: {} };
-      if (!organizedData[year][uen][zoneKey][zone])
-        organizedData[year][uen][zoneKey][zone] = { total: 0, [rubroKey]: {} };
-      if (!organizedData[year][uen][zoneKey][zone][rubroKey][rubroIndex])
-        organizedData[year][uen][zoneKey][zone][rubroKey][rubroIndex] = { total: 0, subrubros: {} };
-  
-      if (!organizedData[year][uen][zoneKey][zone][rubroKey][rubroIndex].subrubros[subrubroIndex])
-        organizedData[year][uen][zoneKey][zone][rubroKey][rubroIndex].subrubros[subrubroIndex] = { total: 0, auxiliares: {} };
-  
-      if (!organizedData[year][uen][zoneKey][zone][rubroKey][rubroIndex].subrubros[subrubroIndex].auxiliares[auxiliarIndex])
-        organizedData[year][uen][zoneKey][zone][rubroKey][rubroIndex].subrubros[subrubroIndex].auxiliares[auxiliarIndex] = { total: 0, cuentas: {} };
-  
-      const cuentaAgrupada = organizedData[year][uen][zoneKey][zone][rubroKey][rubroIndex].subrubros[subrubroIndex].auxiliares[auxiliarIndex].cuentas;
-      if (!cuentaAgrupada[cuentaCodigo]) {
-        cuentaAgrupada[cuentaCodigo] = { nombre: cuentaNombre, total: 0 };
-      }
-      cuentaAgrupada[cuentaCodigo].total += totalPresupuestoMes;
-  
-      organizedData[year][uen][zoneKey][zone][rubroKey][rubroIndex].subrubros[subrubroIndex].auxiliares[auxiliarIndex].total += totalPresupuestoMes;
-      organizedData[year][uen][zoneKey][zone][rubroKey][rubroIndex].subrubros[subrubroIndex].total += totalPresupuestoMes;
-  
-      if (rubroIndex === 3 && subrubroIndex === 14) {
-
-      } else {
-        // Agregar a los totales de rubro, zona y UEN si no es "HONORARIOS INTERNOS"
-        organizedData[year][uen][zoneKey][zone][rubroKey][rubroIndex].total += totalPresupuestoMes;
-        organizedData[year][uen][zoneKey][zone].total += totalPresupuestoMes;
-        organizedData[year][uen].total += totalPresupuestoMes;
-      }
-    });
-    return organizedData;
-  };
 
   const calculateTotalsProyectado = (zones) => {
     const totals = {

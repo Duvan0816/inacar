@@ -48,38 +48,21 @@ const EjecutadoConsolidado = () => {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
   
       const fetchDataset = async (endpoint) => {
-        let allData = [];
-        let page = 1;
-        let totalPages = 1;
-  
-        do {
-          const response = await fetch(`${API_URL}/${endpoint}/?page=${page}`, {
-            headers: {
-              "X-CSRFToken": csrftoken,
-              Authorization: `Token ${token}`,
-              "Content-Type": "application/json",
-            },
-          });
-  
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error("Error Response Text:", errorText);
-            throw new Error(`HTTP error! Status: ${response.status}`);
-          }
-  
-          try {
-            const data = await response.json();
-            allData = [...allData, ...data.results];
-            totalPages = Math.ceil(data.count / 3000);
-          } catch (err) {
-            console.error("Failed to parse JSON:", err);
-            throw new Error("Invalid JSON response");
-          }
-  
-          page++;
-        } while (page <= totalPages);
-  
-        return allData;
+        const response = await fetch(`${API_URL}/${endpoint}/`, {
+          headers: {
+            "X-CSRFToken": csrftoken,
+            Authorization: `Token ${token}`,
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Error Response Text:", errorText);
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return await response.json();
       };
   
       // Fetch both datasets
@@ -87,21 +70,16 @@ const EjecutadoConsolidado = () => {
         fetchDataset("InformeDetalladoPresupuesto"),
         fetchDataset("InformePresupuestoEjecutado"),
       ]);
-  
-      // Organize data
-      const organizedProyectado = organizeGenericData(proyectadoData, "zones", "rubros");
-      const organizedActualizado = organizeGenericData(actualizadoData, "zones", "rubros");
+
+      setData(proyectadoData);
+      setDataActual(actualizadoData);
+
       const rubrosData = await fetchRubrosData();
       setUpdatedRubros(rubrosData);
       setUpdatedRubrosActualizado(rubrosData);
-      // setUpdatedRubros(proyectadoData[0]?.updatedRubros || []);
-      // setUpdatedRubrosActualizado(actualizadoData[0]?.updatedRubros || []);
-      setData(organizedProyectado);
-      setDataActual(organizedActualizado);
-
     } catch (err) {
-      setError(err);
       console.error("Error al cargar los datos:", err);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -110,58 +88,6 @@ const EjecutadoConsolidado = () => {
   useEffect(() => {
     fetchData();
   }, []);
-
-  const organizeGenericData = (data, zoneKey = "zones", rubroKey = "rubros") => {
-    const organizedData = {};
-  
-    data.forEach((item) => {
-      const year = new Date(item.fecha).getFullYear();
-      const uen = item.uen || "Desconocido";
-      const zone = item.cuenta?.regional || "Desconocido";
-      const rubroIndex = item.rubro;
-      const subrubroIndex = item.subrubro;
-      const auxiliarIndex = item.auxiliar;
-      const cuentaCodigo = item.cuenta?.codigo;
-      const cuentaNombre = item.cuenta?.nombre?.trim() || "Sin nombre";
-  
-      const totalPresupuestoMes = item.meses_presupuesto?.reduce(
-        (total, mes) => total + parseFloat(mes.presupuestomes || 0),
-        0
-      ) || 0;
-  
-      if (!organizedData[year]) organizedData[year] = {};
-      if (!organizedData[year][uen]) organizedData[year][uen] = { total: 0, [zoneKey]: {} };
-      if (!organizedData[year][uen][zoneKey][zone])
-        organizedData[year][uen][zoneKey][zone] = { total: 0, [rubroKey]: {} };
-      if (!organizedData[year][uen][zoneKey][zone][rubroKey][rubroIndex])
-        organizedData[year][uen][zoneKey][zone][rubroKey][rubroIndex] = { total: 0, subrubros: {} };
-  
-      if (!organizedData[year][uen][zoneKey][zone][rubroKey][rubroIndex].subrubros[subrubroIndex])
-        organizedData[year][uen][zoneKey][zone][rubroKey][rubroIndex].subrubros[subrubroIndex] = { total: 0, auxiliares: {} };
-  
-      if (!organizedData[year][uen][zoneKey][zone][rubroKey][rubroIndex].subrubros[subrubroIndex].auxiliares[auxiliarIndex])
-        organizedData[year][uen][zoneKey][zone][rubroKey][rubroIndex].subrubros[subrubroIndex].auxiliares[auxiliarIndex] = { total: 0, cuentas: {} };
-  
-      const cuentaAgrupada = organizedData[year][uen][zoneKey][zone][rubroKey][rubroIndex].subrubros[subrubroIndex].auxiliares[auxiliarIndex].cuentas;
-      if (!cuentaAgrupada[cuentaCodigo]) {
-        cuentaAgrupada[cuentaCodigo] = { nombre: cuentaNombre, total: 0 };
-      }
-      cuentaAgrupada[cuentaCodigo].total += totalPresupuestoMes;
-  
-      organizedData[year][uen][zoneKey][zone][rubroKey][rubroIndex].subrubros[subrubroIndex].auxiliares[auxiliarIndex].total += totalPresupuestoMes;
-      organizedData[year][uen][zoneKey][zone][rubroKey][rubroIndex].subrubros[subrubroIndex].total += totalPresupuestoMes;
-  
-      if (rubroIndex === 3 && subrubroIndex === 14) {
-
-      } else {
-        // Agregar a los totales de rubro, zona y UEN si no es "HONORARIOS INTERNOS"
-        organizedData[year][uen][zoneKey][zone][rubroKey][rubroIndex].total += totalPresupuestoMes;
-        organizedData[year][uen][zoneKey][zone].total += totalPresupuestoMes;
-        organizedData[year][uen].total += totalPresupuestoMes;
-      }
-    });
-    return organizedData;
-  };
 
   const calculateTotalsProyectado = (zones) => {
     const totals = {
@@ -221,7 +147,6 @@ const EjecutadoConsolidado = () => {
   
     return { ...totals, utilidadBruta, utilidadoPerdidaOperacional, utilidadAntesDeImpuesto };
   };
-    
   
   const calculateTotalsActualizado = (zones) => {
   
@@ -413,9 +338,152 @@ const EjecutadoConsolidado = () => {
     return totalsByZone;
   };
 
+  const yearPercentages = {
+    2024: {
+      nacionalConstructora: 0.4,
+      nacionalPromotora: 0.4,
+      nacionalInmobiliaria: 0.2,
+      diferenteNacionalConstructora: 0.4,
+      diferenteNacionalPromotora: 0.5,
+      diferenteNacionalInmobiliaria: 0.1,
+    },
+    2025: {
+      nacionalConstructora: 0.4,
+      nacionalPromotora: 0.4,
+      nacionalInmobiliaria: 0.2,
+      diferenteNacionalConstructora: 0.4,
+      diferenteNacionalPromotora: 0.5,
+      diferenteNacionalInmobiliaria: 0.1,
+    },
+  };
+
   const renderData = (proyectadoData, actualizadoData) => {
     return Object.entries(proyectadoData).map(([year, uens]) => {
       const actualizedYearData = actualizadoData[year] || {};
+
+      // Obtener porcentajes para el año actual
+      const percentages = yearPercentages[year] || {};
+
+      // Calculate the total for "Unidades de Apoyo" to split among other UENs
+      const apoyoTotalZonas = uens["Unidades de Apoyo"]?.zones || {};
+      const nacionalTotalsFinal = apoyoTotalZonas.Nacional || {};
+      const exceptonacionalZoneTotalsFinal = Object.fromEntries(
+        Object.entries(apoyoTotalZonas).filter(([zones]) => zones !== "Nacional")
+      );
+
+      // Distribuir los totales de "Nacional"
+      const nacionalShareConstructoraFinal = calculateShareFinal(nacionalTotalsFinal, percentages.nacionalConstructora);
+      const nacionalSharePromotoraFinal = calculateShareFinal(nacionalTotalsFinal, percentages.nacionalPromotora);
+      const nacionalShareInmobiliariaFinal = calculateShareFinal(nacionalTotalsFinal, percentages.nacionalInmobiliaria);
+      // Distribuir los totales de las demás zonas
+      const otherZonesShareConstructoraFinal = calculateShareExceptoNacionalFinal(exceptonacionalZoneTotalsFinal, percentages.diferenteNacionalConstructora);
+      const otherZonesSharePromotoraFinal = calculateShareExceptoNacionalFinal(exceptonacionalZoneTotalsFinal, percentages.diferenteNacionalPromotora);
+      const otherZonesShareInmobiliariaFinal = calculateShareExceptoNacionalFinal(exceptonacionalZoneTotalsFinal, percentages.diferenteNacionalInmobiliaria);
+
+      // Calcular los totales por zona de "Unidades de Apoyo"
+      const apoyoTotalsByZone = calculateTotalsByZoneProyectado(uens["Unidades de Apoyo"]?.zones || {});
+      const nacionalTotals = apoyoTotalsByZone.Nacional || {};
+      const exceptonacionalZoneTotals = Object.fromEntries(
+        Object.entries(apoyoTotalsByZone).filter(([zones]) => zones !== "Nacional")
+      );
+      // Distribuir los totales de "Nacional"
+      const nacionalShareConstructora = calculateShare(nacionalTotals, percentages.nacionalConstructora);
+      const nacionalSharePromotora = calculateShare(nacionalTotals, percentages.nacionalPromotora);
+      const nacionalShareInmobiliaria = calculateShare(nacionalTotals, percentages.nacionalInmobiliaria);
+      // Distribuir los totales de las demás zonas
+      const otherZonesShareConstructora = calculateShareExceptoNacional(exceptonacionalZoneTotals, percentages.diferenteNacionalConstructora);
+      const otherZonesSharePromotora = calculateShareExceptoNacional(exceptonacionalZoneTotals, percentages.diferenteNacionalPromotora);
+      const otherZonesShareInmobiliaria = calculateShareExceptoNacional(exceptonacionalZoneTotals, percentages.diferenteNacionalInmobiliaria);
+
+      // Obtener "Unidades de Apoyo" de actualizadoData (si existe ese año)
+      const apoyoTotalZonasActualizado = actualizadoData?.[year]?.["Unidades de Apoyo"]?.zones || {};
+      const nacionalTotalsFinalActualizado = apoyoTotalZonasActualizado.Nacional || {};
+      const exceptonacionalZoneTotalsFinalActualizado = Object.fromEntries(
+        Object.entries(apoyoTotalZonasActualizado).filter(([zone]) => zone !== "Nacional")
+      );
+
+      // Distribuir los totales de "Nacional"
+      const nacionalShareConstructoraFinalActualizado = calculateShareFinal(nacionalTotalsFinalActualizado, percentages.nacionalConstructora);
+      const nacionalSharePromotoraFinalActualizado = calculateShareFinal(nacionalTotalsFinalActualizado, percentages.nacionalPromotora);
+      const nacionalShareInmobiliariaFinalActualizado = calculateShareFinal(nacionalTotalsFinalActualizado, percentages.nacionalInmobiliaria);
+      // Distribuir los totales de las demás zonas
+      const otherZonesShareConstructoraFinalActualizado = calculateShareExceptoNacionalFinal(exceptonacionalZoneTotalsFinalActualizado, percentages.diferenteNacionalConstructora);
+      const otherZonesSharePromotoraFinalActualizado = calculateShareExceptoNacionalFinal(exceptonacionalZoneTotalsFinalActualizado, percentages.diferenteNacionalPromotora);
+      const otherZonesShareInmobiliariaFinalActualizado = calculateShareExceptoNacionalFinal(exceptonacionalZoneTotalsFinalActualizado, percentages.diferenteNacionalInmobiliaria);
+      
+      // Calcular los totales por zona de "Unidades de Apoyo"
+      const apoyoTotalsByZoneActualizado = calculateTotalsByZoneActualizado(uens["Unidades de Apoyo"]?.zones || {});
+      const nacionalTotalsActualizado = apoyoTotalsByZoneActualizado.Nacional || {};
+      const exceptonacionalZoneTotalsActualizado = Object.fromEntries(
+        Object.entries(apoyoTotalsByZoneActualizado).filter(([zones]) => zones !== "Nacional")
+      );
+      // Distribuir los totales de "Nacional"
+      const nacionalShareConstructoraActualizado = calculateShare(nacionalTotalsActualizado, percentages.nacionalConstructora);
+      const nacionalSharePromotoraActualizado = calculateShare(nacionalTotalsActualizado, percentages.nacionalPromotora);
+      const nacionalShareInmobiliariaActualizado = calculateShare(nacionalTotalsActualizado, percentages.nacionalInmobiliaria);
+      // Distribuir los totales de las demás zonas
+      const otherZonesShareConstructoraActualizado = calculateShareExceptoNacional(exceptonacionalZoneTotalsActualizado, percentages.diferenteNacionalConstructora);
+      const otherZonesSharePromotoraActualizado = calculateShareExceptoNacional(exceptonacionalZoneTotalsActualizado, percentages.diferenteNacionalPromotora);
+      const otherZonesShareInmobiliariaActualizado = calculateShareExceptoNacional(exceptonacionalZoneTotalsActualizado, percentages.diferenteNacionalInmobiliaria);
+
+      function calculateShareExceptoNacional(totals, percentage) {
+        return Object.keys(totals).reduce((acc, zone) => {
+          acc[zone] = Object.fromEntries(
+            Object.entries(totals[zone]).map(([key, value]) => [key, value * percentage || 0])
+          );
+          return acc;
+        }, {});
+      }
+
+      function calculateShareExceptoNacionalFinal(totals, percentage) {
+        return Object.entries(totals).reduce((acc, [zone, data]) => {
+          acc[zone] = { total: data.total * percentage || 0 };
+          return acc;
+        }, {});
+      }
+
+      function calculateShare(totals, percentage) {
+        return Object.keys(totals).reduce((acc, key) => {
+          acc[key] = key === "total" ? totals[key] * percentage || 0 : totals[key];
+          return acc;
+        }, {});
+      }
+
+      function calculateShare(totals, percentage) {
+        return Object.keys(totals).reduce((acc, key) => {
+          acc[key] = totals[key] * percentage || 0;
+          return acc;
+        }, {});
+      }
+      
+      function calculateShareFinal(totals, percentage) {
+        return Object.keys(totals).reduce((acc, key) => {
+          acc[key] = totals[key] * percentage || 0;
+          return {
+            total: (totals.total || 0) * percentage,
+          };
+        }, {});
+      }
+
+      function sumZonesForUEN(zoneShare) {
+        const uenTotal = {};
+        Object.keys(zoneShare).forEach((zone) => {
+          Object.entries(zoneShare[zone]).forEach(([key, value]) => {
+            if (!uenTotal[key]) {
+              uenTotal[key] = 0;
+            }
+            uenTotal[key] += value;
+          });
+        });
+        return uenTotal;
+      }
+
+      const sumConstructora = sumZonesForUEN(otherZonesShareConstructora);
+      const sumPromotora = sumZonesForUEN(otherZonesSharePromotora);
+      const sumInmobiliaria = sumZonesForUEN(otherZonesShareInmobiliaria);
+      const sumConstructoraActualizado = sumZonesForUEN(otherZonesShareConstructoraActualizado);
+      const sumPromotoraActualizado = sumZonesForUEN(otherZonesSharePromotoraActualizado);
+      const sumInmobiliariaActualizado = sumZonesForUEN(otherZonesShareInmobiliariaActualizado);
 
       return (
         <div key={year}>
@@ -429,16 +497,208 @@ const EjecutadoConsolidado = () => {
               <div style={{display: "flex",flexWrap: "wrap",overflow: "auto",width: "100%",}}>
                   {Object.entries(uens).map(([uen, { total: uenTotal, zones }]) => {
                     const actualizedZones = actualizedYearData[uen]?.zones || {};
-                    const proyectadoTotals = calculateTotalsProyectado(zones); 
-                    const actualizadoTotals = calculateTotalsActualizado(actualizedZones);
-                    const totalsByZone = calculateTotalsByZoneProyectado(
-                      zones,
-                      updatedRubros
+                    
+                    const totalsByZone = calculateTotalsByZoneProyectado(zones, updatedRubros);
+                    const exceptonacionalZoneTotals = Object.fromEntries(
+                      Object.entries(totalsByZone).filter(([zone]) => zone !== "Nacional")
                     );
-                    const TotalsByZoneActualizado = calculateTotalsByZoneActualizado(
-                      actualizedZones,
-                      updatedRubrosActualizado
+                    const nacionalZoneTotals = totalsByZone.Nacional || {};
+
+                    if (uen === "Constructora") {
+                      Object.keys(nacionalZoneTotals).forEach((key) => {
+                        if (key in nacionalShareConstructora) {
+                          nacionalZoneTotals[key] += nacionalShareConstructora[key];
+                        }
+                      });
+                    } else if (uen === "Promotora") {
+                      Object.keys(nacionalZoneTotals).forEach((key) => {
+                        if (key in nacionalSharePromotora) {
+                          nacionalZoneTotals[key] += nacionalSharePromotora[key];
+                        }
+                      });
+                    } else if (uen === "Inmobiliaria") {
+                      Object.keys(nacionalZoneTotals).forEach((key) => {
+                        if (key in nacionalShareInmobiliaria) {
+                          nacionalZoneTotals[key] += nacionalShareInmobiliaria[key];
+                        }
+                      });
+                    }
+
+                    if (uen === "Constructora") {
+                      Object.keys(exceptonacionalZoneTotals).forEach((zone) => {
+                        if (otherZonesShareConstructora[zone]) {
+                          Object.keys(exceptonacionalZoneTotals[zone]).forEach((key) => {
+                            exceptonacionalZoneTotals[zone][key] += otherZonesShareConstructora[zone][key] || 0;
+                          });
+                        }
+                      });
+                    } else if (uen === "Promotora") {
+                      Object.keys(exceptonacionalZoneTotals).forEach((zone) => {
+                        if (otherZonesSharePromotora[zone]) {
+                          Object.keys(exceptonacionalZoneTotals[zone]).forEach((key) => {
+                            exceptonacionalZoneTotals[zone][key] += otherZonesSharePromotora[zone][key] || 0;
+                          });
+                        }
+                      });
+                    } else if (uen === "Inmobiliaria") {
+                      Object.keys(exceptonacionalZoneTotals).forEach((zone) => {
+                        if (otherZonesShareInmobiliaria[zone]) {
+                          Object.keys(exceptonacionalZoneTotals[zone]).forEach((key) => {
+                            exceptonacionalZoneTotals[zone][key] += otherZonesShareInmobiliaria[zone][key] || 0;
+                          });
+                        }
+                      });
+                    }
+                    
+                    let adjustedTotal = uenTotal;
+
+                    if (uen === "Constructora") {
+                      adjustedTotal += nacionalShareConstructoraFinal.total || 0;
+                    } else if (uen === "Promotora") {
+                      adjustedTotal += nacionalSharePromotoraFinal.total || 0;
+                    } else if (uen === "Inmobiliaria") {
+                      adjustedTotal += nacionalShareInmobiliariaFinal.total || 0;
+                    }
+                    if (uen === "Constructora") {
+                      Object.keys(zones).forEach((zone) => {
+                        if (zone !== "Nacional" && otherZonesShareConstructoraFinal[zone]) {
+                          adjustedTotal += otherZonesShareConstructoraFinal[zone].total || 0;
+                        }
+                      });
+                    } else if (uen === "Promotora") {
+                      Object.keys(zones).forEach((zone) => {
+                        if (zone !== "Nacional" && otherZonesSharePromotoraFinal[zone]) {
+                          adjustedTotal += otherZonesSharePromotoraFinal[zone].total || 0;
+                        }
+                      });
+                    } else if (uen === "Inmobiliaria") {
+                      Object.keys(zones).forEach((zone) => {
+                        if (zone !== "Nacional" && otherZonesShareInmobiliariaFinal[zone]) {
+                          adjustedTotal += otherZonesShareInmobiliariaFinal[zone].total || 0;
+                        }
+                      });
+                    }
+
+                    const uenTotals = calculateTotalsProyectado(zones);
+                    let proyectadoTotals = { ...uenTotals };
+                  
+                    if (uen === "Constructora") {
+                      Object.keys(proyectadoTotals).forEach((key) => {
+                        proyectadoTotals[key] += sumConstructora[key] || 0;
+                        proyectadoTotals[key] += nacionalShareConstructora[key] || 0;
+                      });
+                    } else if (uen === "Promotora") {
+                      Object.keys(proyectadoTotals).forEach((key) => {
+                        proyectadoTotals[key] += sumPromotora[key] || 0;
+                        proyectadoTotals[key] += nacionalSharePromotora[key] || 0;
+                      });
+                    } else if (uen === "Inmobiliaria") {
+                      Object.keys(proyectadoTotals).forEach((key) => {
+                        proyectadoTotals[key] += sumInmobiliaria[key] || 0;
+                        proyectadoTotals[key] += nacionalShareInmobiliaria[key] || 0;
+                      });
+                    }
+
+                    const TotalsByZoneActualizado = calculateTotalsByZoneActualizado(actualizedZones, updatedRubrosActualizado);
+                    const exceptonacionalZoneTotalsActualizado = Object.fromEntries(
+                      Object.entries(TotalsByZoneActualizado).filter(([zone]) => zone !== "Nacional")
                     );
+                    const nacionalZoneTotalsActualizado = TotalsByZoneActualizado.Nacional || {};
+
+                    if (uen === "Constructora") {
+                      Object.keys(nacionalZoneTotalsActualizado).forEach((key) => {
+                        if (key in nacionalShareConstructoraActualizado) {
+                          nacionalZoneTotalsActualizado[key] += nacionalShareConstructoraActualizado[key];
+                        }
+                      });
+                    } else if (uen === "Promotora") {
+                      Object.keys(nacionalZoneTotalsActualizado).forEach((key) => {
+                        if (key in nacionalSharePromotoraActualizado) {
+                          nacionalZoneTotalsActualizado[key] += nacionalSharePromotoraActualizado[key];
+                        }
+                      });
+                    } else if (uen === "Inmobiliaria") {
+                      Object.keys(nacionalZoneTotalsActualizado).forEach((key) => {
+                        if (key in nacionalShareInmobiliariaActualizado) {
+                          nacionalZoneTotalsActualizado[key] += nacionalShareInmobiliariaActualizado[key];
+                        }
+                      });
+                    }
+
+                    if (uen === "Constructora") {
+                      Object.keys(exceptonacionalZoneTotalsActualizado).forEach((zone) => {
+                        if (otherZonesShareConstructoraActualizado[zone]) {
+                          Object.keys(exceptonacionalZoneTotalsActualizado[zone]).forEach((key) => {
+                            exceptonacionalZoneTotalsActualizado[zone][key] += otherZonesShareConstructoraActualizado[zone][key] || 0;
+                          });
+                        }
+                      });
+                    } else if (uen === "Promotora") {
+                      Object.keys(exceptonacionalZoneTotalsActualizado).forEach((zone) => {
+                        if (otherZonesSharePromotoraActualizado[zone]) {
+                          Object.keys(exceptonacionalZoneTotalsActualizado[zone]).forEach((key) => {
+                            exceptonacionalZoneTotalsActualizado[zone][key] += otherZonesSharePromotoraActualizado[zone][key] || 0;
+                          });
+                        }
+                      });
+                    } else if (uen === "Inmobiliaria") {
+                      Object.keys(exceptonacionalZoneTotalsActualizado).forEach((zone) => {
+                        if (otherZonesShareInmobiliariaActualizado[zone]) {
+                          Object.keys(exceptonacionalZoneTotalsActualizado[zone]).forEach((key) => {
+                            exceptonacionalZoneTotalsActualizado[zone][key] += otherZonesShareInmobiliariaActualizado[zone][key] || 0;
+                          });
+                        }
+                      });
+                    }
+            
+                    let adjustedTotalActualizado = actualizedYearData[uen]?.total;
+
+                    if (uen === "Constructora") {
+                      adjustedTotalActualizado += nacionalShareConstructoraFinalActualizado.total || 0;
+                    } else if (uen === "Promotora") {
+                      adjustedTotalActualizado += nacionalSharePromotoraFinalActualizado.total || 0;
+                    } else if (uen === "Inmobiliaria") {
+                      adjustedTotalActualizado += nacionalShareInmobiliariaFinalActualizado.total || 0;
+                    }
+                    if (uen === "Constructora") {
+                      Object.keys(zones).forEach((zone) => {
+                        if (zone !== "Nacional" && otherZonesShareConstructoraFinalActualizado[zone]) {
+                          adjustedTotalActualizado += otherZonesShareConstructoraFinalActualizado[zone].total || 0;
+                        }
+                      });
+                    } else if (uen === "Promotora") {
+                      Object.keys(zones).forEach((zone) => {
+                        if (zone !== "Nacional" && otherZonesSharePromotoraFinalActualizado[zone]) {
+                          adjustedTotalActualizado += otherZonesSharePromotoraFinalActualizado[zone].total || 0;
+                        }
+                      });
+                    } else if (uen === "Inmobiliaria") {
+                      Object.keys(zones).forEach((zone) => {
+                        if (zone !== "Nacional" && otherZonesShareInmobiliariaFinalActualizado[zone]) {
+                          adjustedTotalActualizado += otherZonesShareInmobiliariaFinalActualizado[zone].total || 0;
+                        }
+                      });
+                    }
+
+                    const uenTotalsActualizado = calculateTotalsActualizado(actualizedZones);
+                    let actualizadoTotals = { ...uenTotalsActualizado };
+                  
+                    if (uen === "Constructora") {
+                      Object.keys(actualizadoTotals).forEach((key) => {
+                        actualizadoTotals[key] += sumConstructoraActualizado[key] || 0;
+                        actualizadoTotals[key] += nacionalShareConstructoraActualizado[key] || 0;
+                      });
+                    } else if (uen === "Promotora") {
+                      Object.keys(actualizadoTotals).forEach((key) => {
+                        actualizadoTotals[key] += sumPromotoraActualizado[key] || 0;
+                        actualizadoTotals[key] += nacionalSharePromotoraActualizado[key] || 0;
+                      });
+                    } else if (uen === "Inmobiliaria") {
+                      Object.keys(actualizadoTotals).forEach((key) => {
+                        actualizadoTotals[key] += sumInmobiliariaActualizado[key] || 0;
+                        actualizadoTotals[key] += nacionalShareInmobiliariaActualizado[key] || 0;
+                      });
+                    }
 
                     return (
                       <div key={uen}style={{ flex: "1 1 20%", margin: "0.2px" }}>
@@ -463,13 +723,13 @@ const EjecutadoConsolidado = () => {
                               {uen}:
                             </Typography>
                             <Typography variant="caption"sx={{ color: "white", width: "25%" }}>
-                              {uenTotal.toLocaleString("es-ES", {minimumFractionDigits: 0,maximumFractionDigits: 0,})}
+                              {adjustedTotal.toLocaleString("es-ES", {minimumFractionDigits: 0,maximumFractionDigits: 0,})}
                             </Typography>
                             <Typography variant="caption"sx={{ color: "white", width: "25%" }}>
-                              {(actualizedYearData[uen]?.total || 0).toLocaleString("es-ES", {minimumFractionDigits: 0,maximumFractionDigits: 0,})}
+                              {(adjustedTotalActualizado || 0).toLocaleString("es-ES", {minimumFractionDigits: 0,maximumFractionDigits: 0,})}
                             </Typography>
                             <Typography variant="caption"sx={{ color: "white", width: "25%" }}>
-                              {(uenTotal - (actualizedYearData[uen]?.total || 0)).toLocaleString('es-ES')}
+                              {(adjustedTotal - (adjustedTotalActualizado || 0)).toLocaleString('es-ES')}
                             </Typography>
                           </div>
                         </h4>
