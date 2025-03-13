@@ -1,14 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/sidebar";
 import { getCookie } from "../../../src/utils/cookieUtils";
-import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
-  Typography,
-  FormGroup,
-
-} from "@mui/material";
+import {Accordion,AccordionDetails,AccordionSummary,Typography,FormGroup,} from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import LoadingModal from "@/components/loading";
 import informeStyles from "../../../src/styles/informe.js";
@@ -17,8 +10,8 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const csrftoken = getCookie("csrftoken");
 
 const EjecutadoConsolidado = () => {
-  const [data, setData] = useState([]); // For the first dataset
-  const [dataActual, setDataActual] = useState([]); // For the second dataset
+  const [data, setData] = useState([]);
+  const [dataActual, setDataActual] = useState([]);
   const [updatedRubros, setUpdatedRubros] = useState([]);
   const [updatedRubrosActualizado, setUpdatedRubrosActualizado] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -65,7 +58,6 @@ const EjecutadoConsolidado = () => {
         return await response.json();
       };
   
-      // Fetch both datasets
       const [proyectadoData, actualizadoData] = await Promise.all([
         fetchDataset("InformeDetalladoPresupuesto"),
         fetchDataset("InformePresupuestoEjecutado"),
@@ -89,7 +81,7 @@ const EjecutadoConsolidado = () => {
     fetchData();
   }, []);
 
-  const calculateTotalsProyectado = (zones, updatedRubros) => {
+  const calculateTotalsProyectado = (zones) => {
     const totals = {
       ingresosOperacionalesTotal: 0,
       costosIndirectosTotal: 0,
@@ -99,7 +91,7 @@ const EjecutadoConsolidado = () => {
       ingresosNoOperacionalesTotal: 0,
       gastosNoOperacionalesTotal: 0,
     };
-  
+
     Object.values(zones).forEach(({ rubros }) => {
       Object.entries(rubros || {}).forEach(([rubroIndex, rubroData]) => {
         const rubroName = updatedRubros?.[rubroIndex]?.nombre || "Unknown";
@@ -132,10 +124,14 @@ const EjecutadoConsolidado = () => {
         }
       });
     });
-  
-    // Derived totals
+
+    const costosDeVentacostosIndirectosTotal =
+      totals.costosDeVentaTotal + 
+      totals.costosIndirectosTotal;
     const utilidadBruta =
-      totals.ingresosOperacionalesTotal - totals.costosDeVentaTotal - totals.costosIndirectosTotal;
+      totals.ingresosOperacionalesTotal - 
+      totals.costosDeVentaTotal - 
+      totals.costosIndirectosTotal;
     const utilidadoPerdidaOperacional =
       utilidadBruta -
       totals.gastosOperacionalesAdministrativosTotal -
@@ -145,10 +141,10 @@ const EjecutadoConsolidado = () => {
       totals.ingresosNoOperacionalesTotal -
       totals.gastosNoOperacionalesTotal;
   
-    return { ...totals, utilidadBruta, utilidadoPerdidaOperacional, utilidadAntesDeImpuesto };
+    return { ...totals, utilidadBruta, utilidadoPerdidaOperacional, utilidadAntesDeImpuesto, costosDeVentacostosIndirectosTotal };
   };
   
-  const calculateTotalsActualizado = (zones, updatedRubrosActualizado) => {
+  const calculateTotalsActualizado = (zones) => {
   
     let ingresosOperacionalesTotalActualizado = 0;
     let costosIndirectosTotalActualizado = 0;
@@ -160,7 +156,7 @@ const EjecutadoConsolidado = () => {
   
     Object.values(zones).forEach(({ rubros }) => {
       Object.entries(rubros).forEach(([rubroIndex, rubroData]) => {
-        const rubroName = updatedRubrosActualizado[rubroIndex]?.nombre || "Unknown";
+        const rubroName = updatedRubrosActualizado?.[rubroIndex]?.nombre || "Unknown";
         const rubroTotal = rubroData.total || 0;
     
         // Process totals based on rubroName
@@ -181,7 +177,11 @@ const EjecutadoConsolidado = () => {
         }
       });
     });    
-  
+
+    const costosDeVentacostosIndirectosTotalActualizado =
+      costosDeVentaTotalActualizado + 
+      costosIndirectosTotalActualizado;
+
     const utilidadBrutaActualizado =
       ingresosOperacionalesTotalActualizado -
       costosDeVentaTotalActualizado -
@@ -198,6 +198,7 @@ const EjecutadoConsolidado = () => {
       gastosNoOperacionalesTotalActualizado;
   
     return {
+      costosDeVentacostosIndirectosTotalActualizado,
       gastosNoOperacionalesTotalActualizado,
       ingresosNoOperacionalesTotalActualizado,
       utilidadAntesDeImpuestoActualizado,
@@ -212,7 +213,7 @@ const EjecutadoConsolidado = () => {
   };
   
   
-  const calculateTotalsByZoneActualizado = (zones, updatedRubrosActualizado) => {
+  const calculateTotalsByZoneActualizado = (zones) => {
     const TotalsByZoneActualizado = {};
 
     // Iterate over zones and rubros to calculate totals by zone
@@ -235,7 +236,7 @@ const EjecutadoConsolidado = () => {
       // Check if rubros is defined
       if (rubros) {
         Object.entries(rubros).forEach(([rubroIndex, rubroData]) => {
-          const rubroName = updatedRubrosActualizado[rubroIndex]?.nombre;
+          const rubroName = updatedRubrosActualizado?.[rubroIndex]?.nombre;
 
           if (rubroName === "INGRESOS OPERACIONALES") {
             TotalsByZoneActualizado[zoneName].zonaingresosOperacionalesTotalActualizado += rubroData.total;
@@ -254,6 +255,10 @@ const EjecutadoConsolidado = () => {
           }
         });
       }
+
+      TotalsByZoneActualizado[zoneName].zonacostosDeVentacostosIndirectosTotalActualizado =
+        TotalsByZoneActualizado[zoneName].zonacostosDeVentaTotalActualizado +
+        TotalsByZoneActualizado[zoneName].zonacostosIndirectosTotalActualizado;
 
       // Calculate gross profit and operational loss or profit for the current zone
       TotalsByZoneActualizado[zoneName].zonautilidadBrutaActualizado =
@@ -275,7 +280,7 @@ const EjecutadoConsolidado = () => {
     return TotalsByZoneActualizado;
   };
 
-  const calculateTotalsByZoneProyectado = (zones, updatedRubros) => {
+  const calculateTotalsByZoneProyectado = (zones) => {
     const totalsByZone = {};
 
     // Iterate over zones and rubros to calculate totals by zone
@@ -298,7 +303,7 @@ const EjecutadoConsolidado = () => {
       // Check if rubros is defined
       if (rubros) {
         Object.entries(rubros).forEach(([rubroIndex, rubroData]) => {
-          const rubroName = updatedRubros[rubroIndex]?.nombre;
+          const rubroName = updatedRubros?.[rubroIndex]?.nombre;
 
           if (rubroName === "INGRESOS OPERACIONALES") {
             totalsByZone[zoneName].zonaingresosOperacionalesTotal +=rubroData.total;
@@ -317,6 +322,10 @@ const EjecutadoConsolidado = () => {
           }
         });
       }
+
+      totalsByZone[zoneName].zonacostosDeVentacostosIndirectosTotal =
+        totalsByZone[zoneName].zonacostosDeVentaTotal +
+        totalsByZone[zoneName].zonacostosIndirectosTotal;
 
       // Calculate gross profit and operational loss or profit for the current zone
       totalsByZone[zoneName].zonautilidadBruta =
@@ -497,7 +506,7 @@ const EjecutadoConsolidado = () => {
               <div style={{display: "flex",flexWrap: "wrap",overflow: "auto",width: "100%",}}>
                   {Object.entries(uens).map(([uen, { total: uenTotal, zones }]) => {
                     const actualizedZones = actualizedYearData[uen]?.zones || {};
-                    
+
                     const totalsByZone = calculateTotalsByZoneProyectado(zones, updatedRubros);
                     const exceptonacionalZoneTotals = Object.fromEntries(
                       Object.entries(totalsByZone).filter(([zone]) => zone !== "Nacional")
@@ -751,30 +760,16 @@ const EjecutadoConsolidado = () => {
                             </div>
                             <div style={informeStyles.textContent}>
                               <Typography variant="caption"style={{ width: "25%" }}>
-                                Costos Indirectos:
-                              </Typography>
-                              <Typography variant="caption"style={{ width: "25%" }}>
-                                {proyectadoTotals.costosIndirectosTotal.toLocaleString("es-ES", {minimumFractionDigits: 0,maximumFractionDigits: 0,})}
-                              </Typography>
-                              <Typography variant="caption"style={{ width: "25%" }}>
-                                {actualizadoTotals.costosIndirectosTotalActualizado.toLocaleString("es-ES",{minimumFractionDigits: 0,maximumFractionDigits: 0,})}
-                              </Typography>
-                              <Typography variant="caption"style={{ width: "25%" }}>
-                                {(proyectadoTotals.costosIndirectosTotal - actualizadoTotals.costosIndirectosTotalActualizado).toLocaleString('es-ES')}
-                              </Typography>
-                            </div>
-                            <div style={informeStyles.textContent}>
-                              <Typography variant="caption"style={{ width: "25%" }}>
                                 Costos de Venta:
                               </Typography>
                               <Typography variant="caption"style={{ width: "25%" }}>
-                                {proyectadoTotals.costosDeVentaTotal.toLocaleString("es-ES", {minimumFractionDigits: 0,maximumFractionDigits: 0,})}
+                                {proyectadoTotals.costosDeVentacostosIndirectosTotal.toLocaleString("es-ES", {minimumFractionDigits: 0,maximumFractionDigits: 0,})}
                               </Typography>
                               <Typography variant="caption"style={{ width: "25%" }}>
-                                {actualizadoTotals.costosDeVentaTotalActualizado.toLocaleString("es-ES",{minimumFractionDigits: 0,maximumFractionDigits: 0,})}
+                                {actualizadoTotals.costosDeVentacostosIndirectosTotalActualizado.toLocaleString("es-ES",{minimumFractionDigits: 0,maximumFractionDigits: 0,})}
                               </Typography>
                               <Typography variant="caption"style={{ width: "25%" }}>
-                                {(proyectadoTotals.costosDeVentaTotal - actualizadoTotals.costosDeVentaTotalActualizado).toLocaleString('es-ES')}
+                                {(proyectadoTotals.costosDeVentacostosIndirectosTotal - actualizadoTotals.costosDeVentacostosIndirectosTotalActualizado).toLocaleString('es-ES')}
                               </Typography>
                             </div>
                             <div
@@ -916,30 +911,16 @@ const EjecutadoConsolidado = () => {
                                   </div>
                                   <div style={informeStyles.textContent}>
                                     <Typography variant="caption"style={{ width: "25%" }}>
-                                      Costos Indirectos:
-                                    </Typography>
-                                    <Typography variant="caption"style={{ width: "25%" }}>
-                                      {totalsByZone[zone].zonacostosIndirectosTotal.toLocaleString("es-ES",{minimumFractionDigits: 0,maximumFractionDigits: 0,})}
-                                    </Typography>
-                                    <Typography variant="caption"style={{ width: "25%" }}>
-                                      {TotalsByZoneActualizado[zone]?.zonacostosIndirectosTotalActualizado.toLocaleString("es-ES",{minimumFractionDigits: 0,maximumFractionDigits: 0,}) || 0}
-                                    </Typography>
-                                    <Typography variant="caption"style={{ width: "25%" }}>
-                                      {(totalsByZone[zone].zonacostosIndirectosTotal - (TotalsByZoneActualizado[zone]?.zonacostosIndirectosTotalActualizado || 0)).toLocaleString("es-ES")}
-                                    </Typography>
-                                  </div>
-                                  <div style={informeStyles.textContent}>
-                                    <Typography variant="caption"style={{ width: "25%" }}>
                                       Costos de Venta:
                                     </Typography>
                                     <Typography variant="caption"style={{ width: "25%" }}>
-                                      {totalsByZone[zone].zonacostosDeVentaTotal.toLocaleString("es-ES",{minimumFractionDigits: 0,maximumFractionDigits: 0,})}
+                                      {totalsByZone[zone].zonacostosDeVentacostosIndirectosTotal.toLocaleString("es-ES",{minimumFractionDigits: 0,maximumFractionDigits: 0,})}
                                     </Typography>
                                     <Typography variant="caption"style={{ width: "25%" }}>
-                                      {TotalsByZoneActualizado[zone]?.zonacostosDeVentaTotalActualizado.toLocaleString("es-ES",{minimumFractionDigits: 0,maximumFractionDigits: 0,}) || 0}
+                                      {TotalsByZoneActualizado[zone]?.zonacostosDeVentacostosIndirectosTotalActualizado.toLocaleString("es-ES",{minimumFractionDigits: 0,maximumFractionDigits: 0,}) || 0}
                                     </Typography>
                                     <Typography variant="caption"style={{ width: "25%" }}>
-                                      {(totalsByZone[zone].zonacostosDeVentaTotal - (TotalsByZoneActualizado[zone]?.zonacostosDeVentaTotalActualizado || 0)).toLocaleString("es-ES")}
+                                      {(totalsByZone[zone].zonacostosDeVentacostosIndirectosTotal - (TotalsByZoneActualizado[zone]?.zonacostosDeVentacostosIndirectosTotalActualizado || 0)).toLocaleString("es-ES")}
                                     </Typography>
                                   </div>
                                   <div
