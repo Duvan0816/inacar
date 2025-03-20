@@ -114,8 +114,8 @@ const GraficaEjecutado = () => {
             };
 
             const [proyectadoData, actualizadoData] = await Promise.all([
-                fetchDataset("InformeDetalladoPresupuesto"),
-                fetchDataset("InformePresupuestoEjecutado"),
+                fetchDataset("GraficaPresupuestoInicial"),
+                fetchDataset("GraficaPresupuestoEjecutado"),
             ]);
 
             const rubrosData = await fetchRubrosData();

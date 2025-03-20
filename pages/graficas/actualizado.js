@@ -106,8 +106,8 @@ const GraficaActualizado = () => {
             };
 
             const [proyectadoData, actualizadoData] = await Promise.all([
-                fetchDataset("InformeDetalladoPresupuesto"),
-                fetchDataset("Actualizado"),
+                fetchDataset("GraficaPresupuestoInicial"),
+                fetchDataset("GraficaPresupuestoActualizado"),
             ]);
 
             const organizedProyectado = organizeGenericData(proyectadoData);
