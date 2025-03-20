@@ -21,125 +21,66 @@ const GraficaEjecutado = () => {
     const [CombinedsubrubroChartData, setCombinedSubrubroChartData] = useState([]);
     const [error, setError] = useState(null);
 
-    const organizeGenericData = (data) => {
-        const organizedData = {};
-        data.forEach((item) => {
-            const year = new Date(item.fecha).getFullYear();
-            const uen = item.uen;
-            const zone = item.cuenta.regional;
-            const rubroIndex = item.rubro;
-            const subrubroIndex = item.subrubro;
-
-            const totalPresupuestoMes = item.meses_presupuesto?.reduce(
-                (total, mes) => total + parseFloat(mes.presupuestomes || 0),
-                0
-            ) || 0;
-
-            if (!organizedData[year]) organizedData[year] = {};
-            if (!organizedData[year][uen]) organizedData[year][uen] = { total: 0, zones: {} };
-            if (!organizedData[year][uen].zones[zone]) organizedData[year][uen].zones[zone] = { total: 0, rubros: {} };
-            if (!organizedData[year][uen].zones[zone].rubros[rubroIndex]) {
-              organizedData[year][uen].zones[zone].rubros[rubroIndex] = {
-                total: 0,
-                subrubros: {},
-              };
-            }
-        
-            if (!organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex]) {
-              organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex] = {
-                total: 0,
-              };
-            }
-            organizedData[year][uen].zones[zone].rubros[rubroIndex].subrubros[subrubroIndex].total += totalPresupuestoMes;
-
-            if (rubroIndex === 3 && subrubroIndex === 14) {
-      
-            } else {
-              // Agregar a los totales de rubro, zona y UEN si no es "HONORARIOS INTERNOS"
-              organizedData[year][uen].zones[zone].rubros[rubroIndex].total += totalPresupuestoMes;
-              organizedData[year][uen].zones[zone].total += totalPresupuestoMes;
-              organizedData[year][uen].total += totalPresupuestoMes;
-            }
-        });
-
-        return organizedData;
-    };
-
+    // Función para obtener datos de rubros
     const fetchRubrosData = async () => {
         const token = localStorage.getItem("token");
-        const rubrosResponse = await fetch(`${API_URL}/rubros/`, {
-          method: "GET",
-          headers: {
+        const response = await fetch(`${API_URL}/rubros/`, {
+        method: "GET",
+        headers: {
             "X-CSRFToken": csrftoken,
             Authorization: `Token ${token}`,
             "Content-Type": "application/json",
-          },
-          credentials: "include",
+        },
+        credentials: "include",
         });
-    
-        if (!rubrosResponse.ok) throw new Error(`HTTP error! Status: ${rubrosResponse.status}`);
-        return await rubrosResponse.json();
+        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+        return await response.json();
     };
 
+    // Función para obtener un dataset desde un endpoint
+    const fetchDataset = async (endpoint) => {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${API_URL}/${endpoint}/`, {
+        headers: {
+            "X-CSRFToken": csrftoken,
+            Authorization: `Token ${token}`,
+            "Content-Type": "application/json",
+        },
+        credentials: "include",
+        });
+        if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Error Response Text:", errorText);
+        throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return await response.json();
+    };
+
+    // Función para obtener todos los datos
     const fetchData = async () => {
         try {
-            setLoading(true);
-            const csrftoken = getCookie("csrftoken");
-            const token = localStorage.getItem("token");
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-            const fetchDataset = async (endpoint) => {
-                let allData = [];
-                let page = 1;
-                let totalPages = 1;
-
-                do {
-                    const response = await fetch(`${API_URL}/${endpoint}/?page=${page}`, {
-                        headers: {
-                            "X-CSRFToken": csrftoken,
-                            Authorization: `Token ${token}`,
-                            "Content-Type": "application/json",
-                        },
-                    });
-
-                    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-
-                    const data = await response.json();
-                    allData = [...allData, ...data.results];
-                    totalPages = Math.ceil(data.count / 3000);
-                    page++;
-                } while (page <= totalPages);
-
-                return allData;
-            };
-
-            const [proyectadoData, actualizadoData] = await Promise.all([
-                fetchDataset("GraficaPresupuestoInicial"),
-                fetchDataset("GraficaPresupuestoEjecutado"),
-            ]);
-
-            const rubrosData = await fetchRubrosData();
-            setUpdatedRubros(rubrosData);
-
-            const organizedProyectado = organizeGenericData(proyectadoData);
-            const organizedActualizado = organizeGenericData(actualizadoData);
-
-            setData(organizedProyectado);
-            setDataActual(organizedActualizado);
-
-            // Generar lista de UENs únicos
-            const uniqueUENs = [
-                ...new Set(
-                    Object.entries(organizedProyectado)
-                        .flatMap(([, uens]) => Object.keys(uens))
-                ),
-            ];
-            setUenOptions(uniqueUENs);
+        setLoading(true);
+        const [proyectadoData, actualizadoData] = await Promise.all([
+            fetchDataset("InformeDetalladoPresupuesto"),
+            fetchDataset("InformePresupuestoEjecutado"),
+        ]);
+        setData(proyectadoData);
+        setDataActual(actualizadoData);
+        const rubrosData = await fetchRubrosData();
+        setUpdatedRubros(rubrosData);
+        // Generar lista de UENs únicos
+        const uniqueUENs = [
+            ...new Set(
+                Object.entries(proyectadoData)
+                    .flatMap(([, uens]) => Object.keys(uens))
+            ),
+        ];
+        setUenOptions(uniqueUENs);
         } catch (err) {
-            setError(err);
-            console.error("Error al cargar los datos:", err);
+        console.error("Error al cargar los datos:", err);
+        setError(err.message);
         } finally {
-            setLoading(false);
+        setLoading(false);
         }
     };
 
@@ -824,77 +765,98 @@ const GraficaEjecutado = () => {
         return chartData;
     };    
     
-    const renderBarChart = (chartData, title) => {
-        // Calcular el valor máximo en la data
+    const renderBarChart = (chartData, title = "Gráfica por UEN") => {
         const allValues = chartData.flatMap(item => [item.proyectado, item.actualizado, item.diferencia]);
         const maxValue = Math.max(...allValues);
         const minValue = Math.min(...allValues);
-    
-        // Redondear al siguiente múltiplo de 20,000 hacia arriba (máximo) y hacia abajo (mínimo)
         const roundedMaxValue = Math.ceil(maxValue / 20000) * 20000;
         const roundedMinValue = Math.floor(minValue / 20000) * 20000;
-    
-        // Asegurar que el dominio incluya el 0
         const domainMin = Math.min(0, roundedMinValue);
         const domainMax = Math.max(0, roundedMaxValue);
+    
         return (
-            <div style={{ marginBottom: "40px", padding: "0 40px" }}>
-                <h2 style={{ textAlign: "center" }}>{title}</h2>
-                <ResponsiveContainer width="100%" height={500}>
-                    <BarChart data={chartData} margin={{ top: 80, right: 5, left: 5, bottom: 30 }}>
-                        <CartesianGrid strokeDasharray="3 3" />
+            <div style={{
+                marginBottom: "50px",
+                padding: "30px",
+                background: "#ffffff",
+                borderRadius: "12px",
+                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)"
+            }}>
+                <h2 style={{ 
+                    textAlign: "center", 
+                    marginBottom: "20px", 
+                    fontSize: "22px", 
+                    color: "#1f2937", 
+                    fontWeight: "600" 
+                }}>
+                    {title}
+                </h2>
+                <ResponsiveContainer width="100%" height={450}>
+                    <BarChart 
+                        data={chartData} 
+                        margin={{ top: 60, right: 20, left: 20, bottom: 50 }}
+                    >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                         <XAxis
                             dataKey="categoria"
                             type="category"
                             tick={{ fontSize: 12 }}
                             interval={0}
-                            height={100}
+                            angle={-25}
+                            textAnchor="end"
+                            height={80}
+                            tickLine={false}
+                            axisLine={{ stroke: "#d1d5db" }}
                         />
-                        <YAxis 
-                            tick={{ fontSize: 14 }} 
-                            width={100} 
-                            domain={[domainMin, domainMax]} 
+                        <YAxis
+                            tick={{ fontSize: 12 }}
+                            width={80}
+                            domain={[domainMin, domainMax]}
                             tickFormatter={(value) => formatNumberWithCommas(value)}
+                            axisLine={{ stroke: "#d1d5db" }}
+                            tickLine={false}
                         />
-                        <Tooltip formatter={(value) => formatNumberWithCommas(value)} />
-                        <Legend />
-                        <ReferenceLine y={0} stroke="gray" strokeWidth={2} strokeDasharray="3 3" />
-                        <Bar dataKey="proyectado" fill="#8884d8" name="Proyectado">
+                        <Tooltip 
+                            contentStyle={{ borderRadius: "8px", background: "#f9fafb", borderColor: "#e5e7eb" }} 
+                            formatter={(value) => formatNumberWithCommas(value)} 
+                            labelStyle={{ fontWeight: "bold", color: "#374151" }}
+                        />
+                        <Legend verticalAlign="top" height={40} />
+                        <ReferenceLine y={0} stroke="#9ca3af" strokeWidth={1.5} strokeDasharray="4 4" />
+                        <Bar dataKey="proyectado" fill="#6366f1" radius={[4, 4, 0, 0]} name="Proyectado">
                             <LabelList 
                                 dataKey="proyectado" 
                                 position="top" 
-                                fontSize={14} 
-                                formatter={(value) => formatNumberWithCommas(value)} 
+                                style={{ fontSize: "11px", fill: "#374151" }}
+                                formatter={(value) => formatNumberWithCommas(value)}
                             />
                         </Bar>
-                        <Bar dataKey="actualizado" fill="#82ca9d" name="Ejecutado">
+                        <Bar dataKey="actualizado" fill="#10b981" radius={[4, 4, 0, 0]} name="Ejecutado">
                             <LabelList 
                                 dataKey="actualizado" 
                                 position="top" 
-                                fontSize={14} 
-                                formatter={(value) => formatNumberWithCommas(value)} 
+                                style={{ fontSize: "11px", fill: "#374151" }}
+                                formatter={(value) => formatNumberWithCommas(value)}
                             />
                         </Bar>
-                        <Bar dataKey="diferencia" fill="#ff7300" name="Diferencia">
+                        <Bar dataKey="diferencia" fill="#f97316" radius={[4, 4, 0, 0]} name="Diferencia">
                             <LabelList 
                                 dataKey="diferencia" 
                                 position="top" 
-                                fontSize={14} 
-                                formatter={(value) => formatNumberWithCommas(value)} 
+                                style={{ fontSize: "11px", fill: "#374151" }}
+                                formatter={(value) => formatNumberWithCommas(value)}
                             />
                         </Bar>
                     </BarChart>
                 </ResponsiveContainer>
             </div>
         );
-    };
+    };    
     
     // Función para formatear números con separadores de miles
     const formatNumberWithCommas = (number) => {
         return new Intl.NumberFormat('es-ES').format(number);
     };
-    
-    
 
     const getRubroOptions = () => {
         const uniqueRubros = new Set();
@@ -925,80 +887,105 @@ const GraficaEjecutado = () => {
     };
     
     return (
-        <div style={{ display: "flex", flexDirection: "row", background: "#f9f9f9", minHeight: "100vh" }}>
-            <Sidebar />
-            <div style={{ flex: 1, padding: "20px" }}>
-                {loading ? (
-                    <LoadingModal open={loading} />
+        <div style={{ display: "flex", flexDirection: "row", background: "#f1f5f9", minHeight: "100vh" }}>
+          <Sidebar />
+          <div style={{ flex: 1, padding: "30px", maxWidth: "1200px", margin: "0 auto" }}>
+            {loading ? (
+              <LoadingModal open={loading} />
+            ) : (
+              <>
+                {/* Header */}
+                <div style={{ textAlign: "center", marginBottom: "30px" }}>
+                  <h2 style={{ fontSize: "28px", fontWeight: "600", color: "#1f2937" }}>
+                    📊 Gráfica de Presupuesto Ejecutado
+                  </h2>
+                </div>
+      
+                {/* Filtro de UEN */}
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: "30px" }}>
+                  <select
+                    value={uenFilter || ""}
+                    onChange={(e) => {
+                      setUenFilter(e.target.value || "");
+                      setRubroFilter("");
+                    }}
+                    style={{
+                      padding: "10px 15px",
+                      borderRadius: "8px",
+                      border: "1px solid #cbd5e1",
+                      fontSize: "16px",
+                      background: "#ffffff",
+                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                    }}
+                  >
+                    <option value="">Selecciona una UEN</option>
+                    {uenOptions.map((uen) => (
+                      <option key={uen} value={uen}>
+                        {uen}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+      
+                {/* Gráficas y Filtros */}
+                {uenFilter ? (
+                  <>
+                    {renderBarChart(rubroChartData)}
+      
+                    {/* Filtro Rubro */}
+                    <div style={{ margin: "30px 0", textAlign: "center" }}>
+                      <select
+                        id="rubro-select"
+                        value={rubroFilter || ""}
+                        onChange={(e) => setRubroFilter(e.target.value || "")}
+                        style={{
+                          padding: "10px 15px",
+                          borderRadius: "8px",
+                          border: "1px solid #cbd5e1",
+                          fontSize: "16px",
+                          background: "#ffffff",
+                          boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                        }}
+                      >
+                        <option value="">Selecciona un Rubro</option>
+                        {getRubroOptions()}
+                      </select>
+                    </div>
+      
+                    {rubroFilter && renderBarChart(subrubroChartData, "Gráfico por Rubro")}
+                  </>
                 ) : (
-                    <>
-                        <div style={{ textAlign: "center", marginBottom: "20px" }}>
-                            <h2>Gráfica de Presupuesto Ejecutado</h2>    
-                            <select
-                                value={uenFilter || ""}
-                                onChange={(e) => {
-                                    setUenFilter(e.target.value || "");
-                                    setRubroFilter("");
-                                }}
-                            >
-                                <option value="">Selecciona un UEN</option>
-                                {uenOptions.map((uen) => (
-                                    <option key={uen} value={uen}>
-                                        {uen}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-    
-                        {/* Gráficas y Filtros */}
-                        {uenFilter ? (
-                            <>
-                                {/* Si hay UEN seleccionado, muestra rubroChartData */}
-                                {renderBarChart(rubroChartData)}
-    
-                                {/* Filtro por Rubro */}
-                                <div style={{ margin: "20px 0", textAlign: "center" }}>
-                                    <label htmlFor="rubro-select">Selecciona un Rubro: </label>
-                                    <select
-                                        id="rubro-select"
-                                        value={rubroFilter || ""}
-                                        onChange={(e) => setRubroFilter(e.target.value || "")}
-                                    >
-                                        <option value="">Seleccionar</option>
-                                        {getRubroOptions()}
-                                    </select>
-                                </div>
-    
-                                {/* Si hay Rubro seleccionado, muestra subrubroChartData */}
-                                {rubroFilter && renderBarChart(subrubroChartData, "Gráfico por Rubro")}
-                            </>
-                        ) : (
-                            <>
-                                {/* Si NO hay UEN seleccionado, muestra CombinedrubroChartData */}
-                                {renderBarChart(CombinedrubroChartData)}
-    
-                                {/* Filtro por Rubro */}
-                                <div style={{ margin: "20px 0", textAlign: "center" }}>
-                                    <label htmlFor="rubro-select">Selecciona un Rubro: </label>
-                                    <select
-                                        id="rubro-select"
-                                        value={rubroFilter || ""}
-                                        onChange={(e) => setRubroFilter(e.target.value || "")}
-                                    >
-                                        <option value="">Seleccionar</option>
-                                        {getRubroOptions()}
-                                    </select>
-                                </div>
-    
-                                {/* Si hay Rubro seleccionado, muestra CombinedsubrubroChartData */}
-                                {rubroFilter && renderBarChart(CombinedsubrubroChartData, "Gráfica por Rubro")}
-                            </>
-                        )}
-                    </>
+                  <>
+                    {renderBarChart(CombinedrubroChartData)}
+      
+                    {/* Filtro Rubro */}
+                    <div style={{ margin: "30px 0", textAlign: "center" }}>
+                      <select
+                        id="rubro-select"
+                        value={rubroFilter || ""}
+                        onChange={(e) => setRubroFilter(e.target.value || "")}
+                        style={{
+                          padding: "10px 15px",
+                          borderRadius: "8px",
+                          border: "1px solid #cbd5e1",
+                          fontSize: "16px",
+                          background: "#ffffff",
+                          boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                        }}
+                      >
+                        <option value="">Selecciona un Rubro</option>
+                        {getRubroOptions()}
+                      </select>
+                    </div>
+      
+                    {rubroFilter && renderBarChart(CombinedsubrubroChartData, "Gráfica por Rubro")}
+                  </>
                 )}
-            </div>
+              </>
+            )}
+          </div>
         </div>
-    );        
+    );      
 };
 
 export default GraficaEjecutado;
