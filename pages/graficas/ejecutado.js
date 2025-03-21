@@ -3,6 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import Sidebar from "@/components/sidebar";
 import LoadingModal from "@/components/loading";
 import { getCookie } from "../../src/utils/cookieUtils";
+import { motion } from "framer-motion";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const csrftoken = getCookie("csrftoken");
@@ -89,15 +90,15 @@ const GraficaEjecutado = () => {
     }, []);
 
     useEffect(() => {
-        if (uenFilter) {
-            setRubroChartData(generateRubroChartData());
-            setSubrubroChartData(generateSubrubroChartData());
-        } else {
-            // When no UEN filter is applied, show the combined data for all UENs
+        if (!uenFilter) {
             setCombinedRubroChartData(generateCombinedRubroChartData());
             setCombinedSubrubroChartData(generateCombinedSubrubroChartData());
         }
-    }, [uenFilter, rubroFilter]);
+        if (uenFilter) {
+            setRubroChartData(generateRubroChartData());
+            setSubrubroChartData(generateSubrubroChartData());
+        }
+    }, [CombinedrubroChartData, uenFilter, rubroFilter]);
 
     const calculateTotalsProyectado = (uens) => {    
         const totals = {
@@ -763,9 +764,42 @@ const GraficaEjecutado = () => {
         });
     
         return chartData;
-    };    
+    };      
     
-    const renderBarChart = (chartData, title = "Gráfica por UEN") => {
+    // Función para formatear números con separadores de miles
+    const formatNumberWithCommas = (number) => {
+        return new Intl.NumberFormat('es-ES').format(number);
+    };
+
+    const getRubroOptions = () => {
+        const uniqueRubros = new Set();
+        const rubroOptions = [];
+    
+        const processZones = (zones) => {
+            Object.values(zones || {}).forEach(zone => {
+                Object.keys(zone?.rubros || {}).forEach(rubro => {
+                    if (!uniqueRubros.has(rubro)) {
+                        uniqueRubros.add(rubro);
+                        rubroOptions.push(
+                            <option key={rubro} value={rubro}>
+                                {updatedRubros?.[rubro]?.nombre}
+                            </option>
+                        );
+                    }
+                });
+            });
+        };
+    
+        if (uenFilter) {
+            processZones(data?.[2025]?.[uenFilter]?.zones);
+        } else {
+            Object.values(data?.[2025] || {}).forEach(uen => processZones(uen?.zones));
+        }
+    
+        return rubroOptions;
+    };
+    
+    const renderBarChart = (chartData, title) => {
         const allValues = chartData.flatMap(item => [item.proyectado, item.actualizado, item.diferencia]);
         const maxValue = Math.max(...allValues);
         const minValue = Math.min(...allValues);
@@ -775,13 +809,18 @@ const GraficaEjecutado = () => {
         const domainMax = Math.max(0, roundedMaxValue);
     
         return (
-            <div style={{
-                marginBottom: "50px",
-                padding: "30px",
-                background: "#ffffff",
-                borderRadius: "12px",
-                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)"
-            }}>
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+                style={{
+                    marginBottom: "50px",
+                    padding: "30px",
+                    background: "#ffffff",
+                    borderRadius: "12px",
+                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)"
+                }}
+            >
                 <h2 style={{ 
                     textAlign: "center", 
                     marginBottom: "20px", 
@@ -792,10 +831,7 @@ const GraficaEjecutado = () => {
                     {title}
                 </h2>
                 <ResponsiveContainer width="100%" height={450}>
-                    <BarChart 
-                        data={chartData} 
-                        margin={{ top: 60, right: 20, left: 20, bottom: 50 }}
-                    >
+                    <BarChart data={chartData} margin={{ top: 60, right: 20, left: 20, bottom: 50 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                         <XAxis
                             dataKey="categoria"
@@ -823,169 +859,108 @@ const GraficaEjecutado = () => {
                         />
                         <Legend verticalAlign="top" height={40} />
                         <ReferenceLine y={0} stroke="#9ca3af" strokeWidth={1.5} strokeDasharray="4 4" />
-                        <Bar dataKey="proyectado" fill="#6366f1" radius={[4, 4, 0, 0]} name="Proyectado">
-                            <LabelList 
-                                dataKey="proyectado" 
-                                position="top" 
-                                style={{ fontSize: "11px", fill: "#374151" }}
-                                formatter={(value) => formatNumberWithCommas(value)}
-                            />
-                        </Bar>
-                        <Bar dataKey="actualizado" fill="#10b981" radius={[4, 4, 0, 0]} name="Ejecutado">
-                            <LabelList 
-                                dataKey="actualizado" 
-                                position="top" 
-                                style={{ fontSize: "11px", fill: "#374151" }}
-                                formatter={(value) => formatNumberWithCommas(value)}
-                            />
-                        </Bar>
-                        <Bar dataKey="diferencia" fill="#f97316" radius={[4, 4, 0, 0]} name="Diferencia">
-                            <LabelList 
-                                dataKey="diferencia" 
-                                position="top" 
-                                style={{ fontSize: "11px", fill: "#374151" }}
-                                formatter={(value) => formatNumberWithCommas(value)}
-                            />
-                        </Bar>
+                        <Bar dataKey="proyectado" fill="#6366f1" radius={[4, 4, 0, 0]} name="Proyectado" />
+                        <Bar dataKey="actualizado" fill="#10b981" radius={[4, 4, 0, 0]} name="Ejecutado" />
+                        <Bar dataKey="diferencia" fill="#f97316" radius={[4, 4, 0, 0]} name="Diferencia" />
                     </BarChart>
                 </ResponsiveContainer>
-            </div>
+            </motion.div>
         );
-    };    
+    };
     
-    // Función para formatear números con separadores de miles
-    const formatNumberWithCommas = (number) => {
-        return new Intl.NumberFormat('es-ES').format(number);
+    const toTitleCase = (str) => {
+        return str
+            .toLowerCase()
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
     };
 
-    const getRubroOptions = () => {
-        const uniqueRubros = new Set();
-        const rubroOptions = [];
-    
-        const processZones = (zones) => {
-            Object.values(zones || {}).forEach(zone => {
-                Object.keys(zone?.rubros || {}).forEach(rubro => {
-                    if (!uniqueRubros.has(rubro)) {
-                        uniqueRubros.add(rubro);
-                        rubroOptions.push(
-                            <option key={rubro} value={rubro}>
-                                {updatedRubros?.[rubro]?.nombre || "Rubro Desconocido"}
-                            </option>
-                        );
-                    }
-                });
-            });
-        };
-    
-        if (uenFilter) {
-            processZones(data?.[2025]?.[uenFilter]?.zones);
-        } else {
-            Object.values(data?.[2025] || {}).forEach(uen => processZones(uen?.zones));
-        }
-    
-        return rubroOptions;
-    };
-    
+    // Layout principal
     return (
         <div style={{ display: "flex", flexDirection: "row", background: "#f1f5f9", minHeight: "100vh" }}>
-          <Sidebar />
-          <div style={{ flex: 1, padding: "30px", maxWidth: "1200px", margin: "0 auto" }}>
-            {loading ? (
-              <LoadingModal open={loading} />
-            ) : (
-              <>
-                {/* Header */}
-                <div style={{ textAlign: "center", marginBottom: "30px" }}>
-                  <h2 style={{ fontSize: "28px", fontWeight: "600", color: "#1f2937" }}>
-                    📊 Gráfica de Presupuesto Ejecutado
-                  </h2>
-                </div>
-      
-                {/* Filtro de UEN */}
-                <div style={{ display: "flex", justifyContent: "center", marginBottom: "30px" }}>
-                  <select
-                    value={uenFilter || ""}
-                    onChange={(e) => {
-                      setUenFilter(e.target.value || "");
-                      setRubroFilter("");
-                    }}
-                    style={{
-                      padding: "10px 15px",
-                      borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
-                      fontSize: "16px",
-                      background: "#ffffff",
-                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                    }}
-                  >
-                    <option value="">Selecciona una UEN</option>
-                    {uenOptions.map((uen) => (
-                      <option key={uen} value={uen}>
-                        {uen}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-      
-                {/* Gráficas y Filtros */}
-                {uenFilter ? (
-                  <>
-                    {renderBarChart(rubroChartData)}
-      
-                    {/* Filtro Rubro */}
-                    <div style={{ margin: "30px 0", textAlign: "center" }}>
-                      <select
-                        id="rubro-select"
-                        value={rubroFilter || ""}
-                        onChange={(e) => setRubroFilter(e.target.value || "")}
-                        style={{
-                          padding: "10px 15px",
-                          borderRadius: "8px",
-                          border: "1px solid #cbd5e1",
-                          fontSize: "16px",
-                          background: "#ffffff",
-                          boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                        }}
-                      >
-                        <option value="">Selecciona un Rubro</option>
-                        {getRubroOptions()}
-                      </select>
-                    </div>
-      
-                    {rubroFilter && renderBarChart(subrubroChartData, "Gráfico por Rubro")}
-                  </>
+            <Sidebar />
+            <div style={{ flex: 1, padding: "30px", maxWidth: "1200px", margin: "0 auto" }}>
+                {loading ? (
+                    <LoadingModal open={loading} />
                 ) : (
-                  <>
-                    {renderBarChart(CombinedrubroChartData)}
-      
-                    {/* Filtro Rubro */}
-                    <div style={{ margin: "30px 0", textAlign: "center" }}>
-                      <select
-                        id="rubro-select"
-                        value={rubroFilter || ""}
-                        onChange={(e) => setRubroFilter(e.target.value || "")}
-                        style={{
-                          padding: "10px 15px",
-                          borderRadius: "8px",
-                          border: "1px solid #cbd5e1",
-                          fontSize: "16px",
-                          background: "#ffffff",
-                          boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                        }}
-                      >
-                        <option value="">Selecciona un Rubro</option>
-                        {getRubroOptions()}
-                      </select>
-                    </div>
-      
-                    {rubroFilter && renderBarChart(CombinedsubrubroChartData, "Gráfica por Rubro")}
-                  </>
+                    
+                    <>
+                        {/* Header */}
+                        <div style={{ textAlign: "center", marginBottom: "30px" }}>
+                            <h2 style={{ fontSize: "28px", fontWeight: "600", color: "#1f2937" }}>
+                                📊 Gráfica Presupuesto Proyectado vs Ejecutado
+                            </h2>
+                        </div>
+    
+                        {/* Filtro de UEN */}
+                        <div style={{ display: "flex", justifyContent: "center", marginBottom: "30px" }}>
+                            <select
+                                value={uenFilter || ""}
+                                onChange={(e) => {
+                                    setUenFilter(e.target.value || null);
+                                    setRubroFilter("");
+                                }}
+                                style={{
+                                    padding: "10px 15px",
+                                    borderRadius: "8px",
+                                    border: "1px solid #cbd5e1",
+                                    fontSize: "16px",
+                                    background: "#ffffff",
+                                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                                }}
+                            >
+                                <option value="">Selecciona una UEN</option>
+                                {uenOptions.map((uen) => (
+                                    <option key={uen} value={uen}>
+                                        {uen}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+    
+                        {/* Mostrar siempre el combinado si no hay UEN */}
+                        {!uenFilter && renderBarChart(CombinedrubroChartData, "Gráfica consolidado de todas las UEN")}
+
+                        {/* Mostrar por UEN cuando hay selección */}
+                        {uenFilter && renderBarChart(rubroChartData, `Gráfica por ${uenFilter}`)}
+    
+                        {/* Filtro de Rubro */}
+                        <div style={{ margin: "30px 0", textAlign: "center" }}>
+                            <select
+                                id="rubro-select"
+                                value={rubroFilter || ""}
+                                onChange={(e) => setRubroFilter(e.target.value || "")}
+                                style={{
+                                    padding: "10px 15px",
+                                    borderRadius: "8px",
+                                    border: "1px solid #cbd5e1",
+                                    fontSize: "16px",
+                                    background: "#ffffff",
+                                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                                }}
+                            >
+                                <option value="">Selecciona un Rubro</option>
+                                {getRubroOptions()}
+                            </select>
+                        </div>
+    
+                        {rubroFilter && (
+                            uenFilter
+                                ? renderBarChart(
+                                    subrubroChartData, 
+                                    `Gráfica por ${toTitleCase(updatedRubros?.[rubroFilter]?.nombre || "Rubro")}`
+                                )
+                                : renderBarChart(
+                                    CombinedsubrubroChartData, 
+                                    `Gráfica por ${toTitleCase(updatedRubros?.[rubroFilter]?.nombre || "Rubro")}`
+                                )
+                        )}
+                    </>
                 )}
-              </>
-            )}
-          </div>
+            </div>
         </div>
-    );      
+    );
 };
 
 export default GraficaEjecutado;
