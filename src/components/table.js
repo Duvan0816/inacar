@@ -857,9 +857,11 @@ const CustomTable = ({
                                     <Typography>{item.nombre}</Typography>
                                     <HoverButton
                                       icon="delete" // Assuming you use an icon library
-                                      onRemove={() =>
-                                        handleRemoveItem(rubroIndex, subrubroIndex, auxiliarIndex, itemIndex, eliminarPresupuesto)
-                                      }
+                                      onRemove={() => {
+                                        if (eliminarPresupuesto) {
+                                          handleRemoveItem(rubroIndex, subrubroIndex, auxiliarIndex, itemIndex, eliminarPresupuesto);
+                                        }
+                                      }}
                                     />
                                   </td>
                                   {MONTHS.map((_, colIndex) => {
