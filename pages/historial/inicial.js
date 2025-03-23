@@ -6,7 +6,6 @@ import withAuth from "../api/auth/withAuth";
 import { openDB } from "idb";
 import { Modal, CircularProgress, Skeleton } from "@mui/material";
 import { motion } from "framer-motion";
-import pako from "pako";
 
 const LoadingModal = ({ open, message }) => (
   <Modal open={open} sx={{ zIndex: 2000 }}>
@@ -46,19 +45,6 @@ const LoadingModal = ({ open, message }) => (
 );
 
 const CardStorage = lazy(() => import("@/components/cardStorage"));
-
-// 🔵 Utilidad para descomprimir updatedRubros
-const decompressUpdatedRubros = (encodedStr) => {
-  try {
-    const binaryStr = atob(encodedStr);
-    const binaryData = Uint8Array.from(binaryStr, (c) => c.charCodeAt(0));
-    const decompressed = pako.inflate(binaryData, { to: "string" });
-    return JSON.parse(decompressed);
-  } catch (e) {
-    console.error("Error descomprimiendo updatedRubros:", e);
-    return null;
-  }
-};
 
 const Storage = () => {
   const [updatedPresupuestos, setPresupuestos] = useState([]);
@@ -137,7 +123,21 @@ const Storage = () => {
           });
         }
 
-        setPresupuestos(allData);
+        const transformedData = allData.map((item) => ({
+          id: item.id,
+          usuario: item.usuario,
+          uen: item.uen,
+          centroCostoid: item.cuenta,
+          rubro: item.rubro,
+          subrubro: item.subrubro,
+          auxiliar: item.auxiliar,
+          item: item.item,
+          meses_presupuesto: item.meses_presupuesto,
+          fecha: item.fecha,
+          updatedRubros: item.updatedRubros,
+        }));
+
+        setPresupuestos(transformedData);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -174,9 +174,7 @@ const Storage = () => {
       const newInputValues = {};
       let newMonthlyTotals = [];
       const newRubrosTotals = {};
-
-      const encodedUpdatedRubros = filteredPresupuestos[0].updatedRubros;
-      const updatedRubrosCopy = decompressUpdatedRubros(encodedUpdatedRubros);
+      const updatedRubrosCopy = filteredPresupuestos[0].updatedRubros || [];
 
       filteredPresupuestos.forEach((entry) => {
         const { id, centroCostoid, rubro, subrubro, auxiliar, item, meses_presupuesto } = entry;
@@ -205,7 +203,7 @@ const Storage = () => {
               newMonthlyTotals[meses] += value;
             }
 
-            const rubroNombre = updatedRubrosCopy?.[rubro]?.nombre;
+            const rubroNombre = updatedRubrosCopy[rubro]?.nombre;
             if (rubroNombre) {
               if (!newRubrosTotals[rubroNombre]) {
                 newRubrosTotals[rubroNombre] = Array(12).fill(0);
