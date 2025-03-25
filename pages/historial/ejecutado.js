@@ -105,7 +105,7 @@ const Storage = () => {
 
       try {
         const firstPage = await getPage(1);
-        const totalPages = Math.ceil(firstPage.count / 2000);
+        const totalPages = Math.ceil(firstPage.count / 3000);
         let allData = [...firstPage.results];
 
         if (totalPages > 1) {
