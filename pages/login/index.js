@@ -5,6 +5,7 @@ import '../../src/app/globals.css';
 import InputLog from "@/components/inputLog";
 import InputLogPass from "@/components/inputLogPass";
 import InacarLogo from '../../public/logo-INACAR.png';
+import inacarNV from '../../public/inacar_NV.png';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 
@@ -75,7 +76,7 @@ const Login = () => {
         <>
             <div className="background"></div>
             <div className="login-container">
-                <Image src={InacarLogo} height={80} width={160} alt="Inacar Logo" priority />
+                <Image src={inacarNV} height={150} width={150} alt="Inacar Logo" priority />
                 <InputLog
                     name="username"
                     value={formData.username}

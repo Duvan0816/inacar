@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import Image from 'next/image';
 import SidebarStyle from '../styles/sidebar';
 import React, { useState } from 'react';
+import inacarNV from '../../public/inacar_NV.png';
 import InacarLogo from '../../public/logo-INACAR.png';
 import { Drawer, List, ListItem, ListItemText, ListItemIcon, Collapse, Toolbar, Typography, Avatar, Button } from '@mui/material';
 import { ExpandLess, ExpandMore, Home as HomeIcon, Description as DescriptionIcon, BarChart as BarChartIcon, AllInbox } from '@mui/icons-material';
@@ -133,7 +134,7 @@ const Sidebar = () => {
           <div sx={router.pathname === "/uen/constructora" ? SidebarStyle.iconConstructora : router.pathname === "/uen/inmobiliaria" ? SidebarStyle.iconInmobiliaria : router.pathname === "/uen/unidad-apoyo" ? SidebarStyle.iconUA : SidebarStyle.icon}>
             <Toolbar>
               <Typography variant="h6" noWrap style={{ cursor: 'pointer' }} onClick={() => handleItemClick('Inicio', '/inicio')}>
-                <Image src={InacarLogo} alt="Logo" height={50} width={100} priority />
+                <Image src={inacarNV} alt="Logo" height={120} width={120} priority />
               </Typography>
             </Toolbar>
           </div>
