@@ -595,15 +595,20 @@ const CustomTable = ({
         };
     };
 
-    const data = Object.keys(inputValues).map((inputId) => {
+    let updatedRubrosIncluded = false; // 🔹 Controlador para agregar updatedRubros solo una vez
+
+    const data = Object.keys(inputValues).map((inputId, index) => {
         const parsed = parseInputId(inputId);
+        const includeUpdatedRubros = !updatedRubrosIncluded; // Solo será true en la primera iteración
+        if (includeUpdatedRubros) updatedRubrosIncluded = true; // 🔹 Marcamos que ya lo incluimos
+
         return {
             id: parseInt(inputValues[inputId]?.id) || null,
             cuenta: parseInt(inputValues[inputId]?.centroCostoid) || null,
             ...parsed,
             usuario: userId,
             uen,
-            updatedRubros,
+            updatedRubros: includeUpdatedRubros ? updatedRubros : null, // 🔹 Solo en el primero
             mesesData: [{ meses: parsed.meses, presupuestomes: Math.round(parseInt(inputValues[inputId]?.value) || 0) }],
         };
     });

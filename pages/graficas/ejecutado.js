@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, LabelList } from 'recharts';
 import Sidebar from "@/components/sidebar";
 import LoadingModal from "@/components/loading";
@@ -13,13 +13,9 @@ const GraficaEjecutado = () => {
     const [dataActual, setDataActual] = useState([]);
     const [updatedRubros, setUpdatedRubros] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [uenFilter, setUenFilter] = useState(null); // UEN seleccionado
-    const [rubroFilter, setRubroFilter] = useState(null); // Rubro seleccionado
-    const [uenOptions, setUenOptions] = useState([]); // Lista de UENs
-    const [rubroChartData, setRubroChartData] = useState([]);
-    const [subrubroChartData, setSubrubroChartData] = useState([]);
-    const [CombinedrubroChartData, setCombinedRubroChartData] = useState([]);
-    const [CombinedsubrubroChartData, setCombinedSubrubroChartData] = useState([]);
+    const [uenFilter, setUenFilter] = useState(null);
+    const [rubroFilter, setRubroFilter] = useState(null); 
+    const [uenOptions, setUenOptions] = useState([]); 
     const [error, setError] = useState(null);
 
     // Función para obtener datos de rubros
@@ -88,17 +84,6 @@ const GraficaEjecutado = () => {
     useEffect(() => {
         fetchData();
     }, []);
-
-    useEffect(() => {
-        if (!uenFilter) {
-            setCombinedRubroChartData(generateCombinedRubroChartData());
-            setCombinedSubrubroChartData(generateCombinedSubrubroChartData());
-        }
-        if (uenFilter) {
-            setRubroChartData(generateRubroChartData());
-            setSubrubroChartData(generateSubrubroChartData());
-        }
-    }, [CombinedrubroChartData, uenFilter, rubroFilter]);
 
     const calculateTotalsProyectado = (uens) => {    
         const totals = {
@@ -492,8 +477,6 @@ const GraficaEjecutado = () => {
         return chartData;
     };  
 
-
-
     const generateRubroChartData = () => {
         const chartData = [];
         if (!uenFilter || !data) return chartData;
@@ -764,8 +747,24 @@ const GraficaEjecutado = () => {
         });
     
         return chartData;
-    };      
+    }; 
+
+    const CombinedrubroChartData = useMemo(() => {
+        return generateCombinedRubroChartData(data, dataActual, updatedRubros);
+    }, [data, dataActual, updatedRubros]);
+
+    const CombinedsubrubroChartData = useMemo(() => {
+        return generateCombinedSubrubroChartData(data, dataActual, updatedRubros);
+    }, [data, dataActual, updatedRubros, rubroFilter]);
     
+    const rubroChartData = useMemo(() => {
+        return uenFilter ? generateRubroChartData() : [];
+    }, [uenFilter, rubroFilter]);
+    
+    const subrubroChartData = useMemo(() => {
+        return uenFilter ? generateSubrubroChartData() : [];
+    }, [uenFilter, rubroFilter]);
+
     // Función para formatear números con separadores de miles
     const formatNumberWithCommas = (number) => {
         return new Intl.NumberFormat('es-ES').format(number);
@@ -919,7 +918,7 @@ const GraficaEjecutado = () => {
                             </select>
                         </div>
     
-                        {/* Mostrar siempre el combinado si no hay UEN */}
+                        {/* Mostrar el combinado*/}
                         {!uenFilter && renderBarChart(CombinedrubroChartData, "Gráfica consolidado de todas las UEN")}
 
                         {/* Mostrar por UEN cuando hay selección */}

@@ -1,247 +1,259 @@
 import Sidebar from "@/components/sidebar";
-import CardStorage from "@/components/cardStorage";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, lazy } from "react";
 import { getCookie } from "../../src/utils/cookieUtils";
 import { useRouter } from "next/router";
 import withAuth from "../api/auth/withAuth";
 import { openDB } from "idb";
-import LoadingModal from "@/components/loading";
+import { Modal, CircularProgress, Skeleton } from "@mui/material";
+import { motion } from "framer-motion";
+import CardStorage from "@/components/cardStorage";
+import pako from "pako";
+
+const LoadingModal = ({ open, message }) => (
+  <Modal open={open} sx={{ zIndex: 2000 }}>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "100vh",
+        width: "100vw",
+        position: "fixed",
+        top: 0,
+        left: 0,
+        zIndex: 2000,
+      }}
+    >
+      <div
+        style={{
+          padding: "30px",
+          background: "#fff",
+          borderRadius: "12px",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "15px",
+          border: "2px solid #000",
+        }}
+      >
+        <CircularProgress color="primary" />
+        <p style={{ fontSize: "18px", fontWeight: "500", fontStyle: "italic" }}>
+          {message || "Cargando..."}
+        </p>
+      </div>
+    </div>
+  </Modal>
+);
+
+const decompressUpdatedRubros = (encodedStr) => {
+  try {
+    const binaryStr = atob(encodedStr);
+    const binaryData = Uint8Array.from(binaryStr, (c) => c.charCodeAt(0));
+    const decompressed = pako.inflate(binaryData, { to: "string" });
+    return JSON.parse(decompressed);
+  } catch (e) {
+    console.error("Error descomprimiendo updatedRubros:", e);
+    return null;
+  }
+};
 
 const Storage = () => {
-  const [updatedRubros, setUpdatedRubros] = useState([]); 
   const [updatedPresupuestos, setPresupuestos] = useState([]);
-  const [userId, setUserId] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
-  let dbInstance = null;
+  const [db, setDb] = useState(null);
 
-  const initDB = async () => {
-    if (dbInstance) return dbInstance;
-    indexedDB.deleteDatabase("PresupuestoDB");
-
-    dbInstance = await openDB("PresupuestoDB", 1, {
+  useEffect(() => {
+    openDB("PresupuestoDB", 2, {
       upgrade(db) {
         if (!db.objectStoreNames.contains("rubrosData")) {
           db.createObjectStore("rubrosData");
         }
       },
-    });
-
-    return dbInstance;
-  };
-
-  const clearDataInDB = async (currentView) => {
-    try {
-      const db = await initDB();
-      const tx = db.transaction("rubrosData", "readwrite");
-      const store = tx.objectStore("rubrosData");
-      await store.put(
-        {
-          updatedRubros: [],
-          monthlyTotals: Array(12).fill(0),
-          rubrosTotals: {},
-          inputs: {},
-        },
-        `${currentView}_rubrosData`
-      );
-      await tx.done;
-    } catch (error) {
-      console.error("Error al vaciar datos en IndexedDB:", error);
-    }
-  };
+    }).then(setDb);
+  }, []);
 
   const saveDataToDB = async (key, data) => {
-    const db = await initDB();
-    if (!db) {
-      console.error("IndexedDB no está disponible");
-      return;
-    }
-    try {
-      const tx = db.transaction("rubrosData", "readwrite");
-      const store = tx.objectStore("rubrosData");
-      await store.put(data, key);
-      await tx.done;
-    } catch (error) {
-      console.error("Error al guardar datos en IndexedDB:", error);
-    }
+    if (!db) return;
+    const tx = db.transaction("rubrosData", "readwrite");
+    const store = tx.objectStore("rubrosData");
+    await store.put(data, key);
+    await tx.done;
   };
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchAllPages = async () => {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const csrftoken = getCookie("csrftoken");
+      const token = localStorage.getItem("token");
+      const headers = {
+        "X-CSRFToken": csrftoken,
+        Authorization: `Token ${token}`,
+        "Content-Type": "application/json",
+      };
+
+      const getPage = async (page) => {
+        const res = await fetch(`${API_URL}/HistorialPresupuestoActualizado/?page=${page}`, {
+          method: "GET",
+          headers,
+          credentials: "include",
+          keepalive: true,
+        });
+        return res.json();
+      };
+
       try {
-        const API_URL =
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-        const csrftoken = getCookie("csrftoken");
-        const token = localStorage.getItem("token");
-        let allData = [];
-        let page = 1;
-        let totalPages = 1;
-        do {
-          const presupuestosResponse = await fetch(
-            `${API_URL}/HistorialPresupuestoActualizado/?page=${page}`,
-            {
-              method: "GET",
-              headers: {
-                "X-CSRFToken": csrftoken,
-                Authorization: `Token ${token}`,
-                "Content-Type": "application/json",
-              },
-              credentials: "include",
-              keepalive: true 
-            }
+        const firstPage = await getPage(1);
+        const totalPages = Math.ceil(firstPage.count / 2000);
+        let allData = [...firstPage.results];
+
+        if (totalPages > 1) {
+          const pageNumbers = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
+          const responses = await Promise.allSettled(
+            pageNumbers.map((page) => getPage(page))
           );
-    
-          if (!presupuestosResponse.ok) {
-            const errorText = await presupuestosResponse.text();
-            console.error("Error Response Text:", errorText);
-            throw new Error(`HTTP error! Status: ${presupuestosResponse.status}`);
-          }
-    
-          const data = await presupuestosResponse.json();
-          allData = [...allData, ...data.results]; // Concatenate new data
-          totalPages = Math.ceil(data.count / 1000); // Update total pages
-          page++; // Move to the next page
-        } while (page <= totalPages);
-    
-        const transformedData = allData.map((item) => ({
-          id: item.id,
-          usuario: item.usuario,
-          uen: item.uen,
-          centroCostoid: item.cuenta,
-          rubro: item.rubro,
-          subrubro: item.subrubro,
-          auxiliar: item.auxiliar,
-          item: item.item,
-          meses_presupuesto: item.meses_presupuesto,
-          fecha: item.fecha,
-          rubrosTotals: item.rubrosTotals,
-          updatedRubros: item.updatedRubros,
-          monthlyTotals: item.monthlyTotals,
-        }));
-        setPresupuestos(transformedData || []);
-      } catch (error) {
-        console.error("Error fetching data:", error);
+
+          responses.forEach((res) => {
+            if (res.status === "fulfilled") {
+              allData = allData.concat(res.value.results);
+            }
+          });
+        }
+        console.log(allData)
+        setPresupuestos(allData);
+      } catch (err) {
+        console.error("Error loading data:", err);
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (!userId) {
-      fetchData();
-    }
-  }, [userId]);
-  
-  const uniquePresupuestos = Array.from(
-    new Map(
-      updatedPresupuestos.map((presupuesto) => {
-        const year = new Date(presupuesto.fecha).getFullYear();
-        const uniqueKey = `${presupuesto.uen.nombre}-${presupuesto.usuario.id}-${year}`;
-        return [uniqueKey, presupuesto];
-      })
-    ).values()
-  );
+    fetchAllPages();
+  }, []);
+
+  const uniquePresupuestos = useMemo(() => {
+    return Array.from(
+      new Map(
+        updatedPresupuestos.map((p) => {
+          const year = new Date(p.fecha).getFullYear();
+          const uniqueKey = `${p.uen.nombre}-${p.usuario.id}-${year}`;
+          return [uniqueKey, p];
+        })
+      ).values()
+    );
+  }, [updatedPresupuestos]);
 
   const handleCardClick = async (nombre, usuarioId, fecha) => {
     const targetYear = new Date(fecha).getFullYear();
-    const filteredPresupuestos = updatedPresupuestos.filter((item) => {
+    const filtered = updatedPresupuestos.filter((item) => {
       const itemYear = new Date(item.fecha).getFullYear();
       return (
         item.uen.nombre.toLowerCase() === nombre.toLowerCase() &&
         item.usuario.id === usuarioId &&
-        itemYear === targetYear 
+        itemYear === targetYear
       );
     });
 
-    if (filteredPresupuestos.length > 0) {
+    if (filtered.length > 0) {
       const newInputValues = {};
       let newMonthlyTotals = [];
       const newRubrosTotals = {};
-      const updatedRubrosCopy = filteredPresupuestos[0].updatedRubros || [];
+      const encodedUpdatedRubros = filtered[0].updatedRubros;
+      const updatedRubrosCopy = decompressUpdatedRubros(encodedUpdatedRubros);
 
-      filteredPresupuestos.forEach((entry) => {
+      filtered.forEach((entry) => {
         const { id, centroCostoid, rubro, subrubro, auxiliar, item, meses_presupuesto } = entry;
-        
-        if (meses_presupuesto && Array.isArray(meses_presupuesto)) {
-          meses_presupuesto.forEach(({ meses, presupuestomes }) => {
-            const inputId = `outlined-basic-${rubro}-${subrubro}-${auxiliar}-${item}-${meses}`;
-            
-            newInputValues[inputId] = {
-              centroCostoid,
-              id,
-              rubro,
-              subrubro,
-              auxiliar,
-              item,
-              meses,
-              value: parseFloat(presupuestomes),
-            };
-    
-            const value = parseFloat(newInputValues[inputId]?.value) || 0;
-            
-            if (!Array.isArray(newMonthlyTotals) || newMonthlyTotals.length === 0) {
-              newMonthlyTotals = Array(12).fill(0);
-            }
-            
-            // Verificar si meses es un índice válido (0 a 11)
-            if (typeof meses === "number" && meses >= 0 && meses < 12) {
-              newMonthlyTotals[meses] += value;
-            }
+        meses_presupuesto?.forEach(({ meses, presupuestomes }) => {
+          const inputId = `outlined-basic-${rubro}-${subrubro}-${auxiliar}-${item}-${meses}`;
+          newInputValues[inputId] = {
+            centroCostoid,
+            id,
+            rubro,
+            subrubro,
+            auxiliar,
+            item,
+            meses,
+            value: parseFloat(presupuestomes),
+          };
 
-            const rubroNombre = updatedRubrosCopy[rubro].nombre
-            if (rubroNombre) {
-              if (!newRubrosTotals[rubroNombre]) {
-                newRubrosTotals[rubroNombre] = Array(12).fill(0); 
-              }
-              if (!newRubrosTotals[rubroNombre][meses]) {
-                newRubrosTotals[rubroNombre][meses] = 0;
-              }
-              newRubrosTotals[rubroNombre][meses] += value;
+          const value = parseFloat(newInputValues[inputId]?.value) || 0;
+
+          if (!Array.isArray(newMonthlyTotals) || newMonthlyTotals.length === 0) {
+            newMonthlyTotals = Array(12).fill(0);
+          }
+
+          if (typeof meses === "number" && meses >= 0 && meses < 12) {
+            newMonthlyTotals[meses] += value;
+          }
+
+          const rubroNombre = updatedRubrosCopy[rubro]?.nombre;
+          if (rubroNombre) {
+            if (!newRubrosTotals[rubroNombre]) {
+              newRubrosTotals[rubroNombre] = Array(12).fill(0);
             }
-          });
-        }
+            newRubrosTotals[rubroNombre][meses] += value;
+          }
+        });
       });
-    
+
       const currentView = nombre === "Unidades de Apoyo" ? "unidad-apoyo" : nombre.toLowerCase();
-      const eliminarPresupuesto = "presupuestosActualizado"
-    
-      await clearDataInDB(currentView);    
+      const eliminarPresupuesto = "presupuestosActualizado";
+
       await saveDataToDB(`${currentView}_rubrosData`, {
         inputs: newInputValues,
-        centroCostoid: filteredPresupuestos.map((entry) => entry.centroCostoid),
-        updatedRubros: filteredPresupuestos[filteredPresupuestos.length - 1].updatedRubros,
+        centroCostoid: filtered.map((entry) => entry.centroCostoid),
+        updatedRubros: updatedRubrosCopy,
         rubrosTotals: newRubrosTotals,
         monthlyTotals: newMonthlyTotals,
-        eliminarPresupuesto: eliminarPresupuesto,
+        eliminarPresupuesto,
       });
 
       router.push(`/uen/${currentView}`);
     }
   };
-  
+
   return (
     <>
-      {isLoading && <LoadingModal open={isLoading} />}
-      <div style={{ display: "flex", flexDirection: "row", height: "100vh" }}>
-        <Sidebar />
-        <div style={{ display: "flex", flexDirection: "column", width: "80%" }}>
-          {uniquePresupuestos.length > 0 &&
-            uniquePresupuestos.map((presupuesto, index) => (
-              <CardStorage
-                key={index}
-                area={`${presupuesto.uen.nombre || "N/A"}`}
-                user={`${presupuesto.usuario.first_name} ${presupuesto.usuario.last_name}`}
-                date={`${new Date(presupuesto.fecha).getFullYear() || "N/A"}`}
-                click={() =>
-                  handleCardClick(
-                    presupuesto.uen.nombre,
-                    presupuesto.usuario.id,
-                    presupuesto.fecha
-                  )
-                }
+      {isLoading && <LoadingModal open={isLoading} message="Cargando historial..." />}
+      <div style={{ display: "flex", flexDirection: "row", minHeight: "100vh" }}>
+        <div style={{ width: "250px", flexShrink: 0 }}>
+          <Sidebar />
+        </div>
+        <div style={{ flex: 1, padding: "20px", gap: "15px", display: "flex", flexDirection: "column" }}>
+          {isLoading ? (
+            Array.from({ length: 4 }).map((_, idx) => (
+              <Skeleton
+                key={idx}
+                variant="rectangular"
+                width="100%"
+                height={120}
+                sx={{ bgcolor: "rgba(0,0,0,0.15)", borderRadius: "12px" }}
               />
-            ))}
+            ))
+          ) : (
+            uniquePresupuestos.map((presupuesto, index) => (
+              <motion.div
+                key={index}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                transition={{ duration: 0.3 }}
+              >
+                <CardStorage
+                  area={presupuesto.uen.nombre || "N/A"}
+                  user={`${presupuesto.usuario.first_name} ${presupuesto.usuario.last_name}`}
+                  date={`${new Date(presupuesto.fecha).getFullYear() || "N/A"}`}
+                  click={() =>
+                    handleCardClick(
+                      presupuesto.uen.nombre,
+                      presupuesto.usuario.id,
+                      presupuesto.fecha
+                    )
+                  }
+                />
+              </motion.div>
+            ))
+          )}
         </div>
       </div>
     </>
