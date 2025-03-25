@@ -120,7 +120,7 @@ const Storage = () => {
             }
           });
         }
-        console.log(allData)
+
         setPresupuestos(allData);
       } catch (err) {
         console.error("Error loading data:", err);
