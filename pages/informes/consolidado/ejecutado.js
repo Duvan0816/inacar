@@ -73,7 +73,18 @@ const EjecutadoConsolidado = () => {
   const [updatedRubrosActualizado, setUpdatedRubrosActualizado] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedMonths, setSelectedMonths] = useState([]);
 
+  const handleMonthToggle = (monthIndex) => {
+    setSelectedMonths((prev) =>
+      prev.includes(monthIndex)
+        ? prev.filter((m) => m !== monthIndex)
+        : [...prev, monthIndex]
+    );
+  };
+  
+  const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+  
   // Función para obtener datos de rubros
   const fetchRubrosData = async () => {
     const token = localStorage.getItem("token");
@@ -93,7 +104,7 @@ const EjecutadoConsolidado = () => {
   // Función para obtener un dataset desde un endpoint
   const fetchDataset = async (endpoint) => {
     const token = localStorage.getItem("token");
-    const response = await fetch(`${API_URL}/${endpoint}/`, {
+    const response = await fetch(`${API_URL}/${endpoint}`, {
       headers: {
         "X-CSRFToken": csrftoken,
         Authorization: `Token ${token}`,
@@ -102,9 +113,7 @@ const EjecutadoConsolidado = () => {
       credentials: "include",
     });
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Error Response Text:", errorText);
-      throw new Error(`HTTP error! Status: ${response.status}`);
+      throw new Error(`Error ${response.status}: ${response.statusText}`);
     }
     return await response.json();
   };
@@ -113,9 +122,13 @@ const EjecutadoConsolidado = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
+      const mesesQuery = selectedMonths.length > 0
+      ? `?meses=${selectedMonths.join(",")}`
+      : "";
       const [proyectadoData, actualizadoData] = await Promise.all([
-        fetchDataset("InformeDetalladoPresupuesto"),
-        fetchDataset("InformePresupuestoEjecutado"),
+        fetchDataset(`InformeDetalladoPresupuesto${mesesQuery}`),
+        fetchDataset(`InformePresupuestoEjecutado${mesesQuery}`),
+        
       ]);
       setData(proyectadoData);
       setDataActual(actualizadoData);
@@ -941,6 +954,31 @@ const EjecutadoConsolidado = () => {
     <div style={{ display: "flex", flexDirection: "row" }}>
       <Sidebar />
       <div style={{ display: "flex", width: "100%", flexDirection: "column" }}>
+        <div style={{ padding: "1rem" }}>
+          <Typography variant="subtitle1">Filtrar por meses:</Typography>
+          <FormGroup row>
+            {monthNames.map((name, index) => (
+              <FormControlLabel
+                key={index}
+                control={
+                  <Checkbox
+                    checked={selectedMonths.includes(index)}
+                    onChange={() => handleMonthToggle(index)}
+                  />
+                }
+                label={name}
+              />
+            ))}
+          </FormGroup>
+          <Button
+            variant="contained"
+            onClick={fetchData}
+            sx={{ marginTop: "0.5rem" }}
+          >
+            Aplicar Filtro
+          </Button>
+        </div>
+
         {loading ? <p><LoadingModal open={loading} /></p> : renderData}
       </div>
     </div>
