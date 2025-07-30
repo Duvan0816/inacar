@@ -4,7 +4,7 @@ import SidebarStyle from '../styles/sidebar';
 import React, { useState } from 'react';
 import inacarNV from '../../public/realista2.png';
 import { Drawer, List, ListItem, ListItemText, ListItemIcon, Collapse, Toolbar, Typography, Button } from '@mui/material';
-import { ExpandLess, ExpandMore, Home as HomeIcon, Description as DescriptionIcon, BarChart as BarChartIcon } from '@mui/icons-material';
+import { ExpandLess, ExpandMore, Home as HomeIcon, Description as DescriptionIcon, BarChart as BarChartIcon, BusinessCenter as BusinessCenterIcon } from '@mui/icons-material';
 import AvatarUser from './avatarUser';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useRouter } from 'next/router';
@@ -14,6 +14,7 @@ const Sidebar = () => {
   const [openInformes, setOpenInformes] = useState(false);
   const [openConsolidado, setOpenConsolidado] = useState(false);
   const [openGrafica, setOpenGrafica] = useState(false);
+  const [openProyecto, setOpenProyecto] = useState(false);
   const [openHistorial, setOpenHistorial] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [user, setUser] = useState('');
@@ -35,6 +36,10 @@ const Sidebar = () => {
   const handleGraficaClick = () => {
     setOpenGrafica(!openGrafica);
     setSelectedItem('Grafica');
+  };
+  const handleProyectoClick = () => {
+    setOpenProyecto(!openProyecto);
+    setSelectedItem('Proyecto');
   };
 
   const handleHistorialClick = () => {
@@ -227,6 +232,36 @@ const Sidebar = () => {
                   <ListItem button selected={selectedItem === 'EjecutadoP'} onClick={() => handleItemClick('EjecutadoP', '/graficas/ejecutado')} sx={router.pathname === "/uen/constructora" ? SidebarStyle.item : router.pathname === '/uen/inmobiliaria' ? SidebarStyle.itemInmobiliaria : router.pathname === "/uen/unidad-apoyo" ? SidebarStyle.itemUA : SidebarStyle.item}>
                     <ListItemText primary="Ejecutado" />
                   </ListItem>
+                  <ListItem button selected={selectedItem === 'EscrituracionL'} onClick={() => handleItemClick('EscrituracionL', '/graficas/escrituracion')} sx={router.pathname === "/uen/constructora" ? SidebarStyle.item : router.pathname === '/uen/inmobiliaria' ? SidebarStyle.itemInmobiliaria : router.pathname === "/uen/unidad-apoyo" ? SidebarStyle.itemUA : SidebarStyle.item}>
+                    <ListItemText primary="Escrituración" />
+                  </ListItem>
+                </div>
+              </List>
+            </Collapse>
+              <ListItem
+              button
+              onClick={handleProyectoClick}
+              selected={selectedItem === 'Proyectos'}
+              sx={router.pathname === "/Proyectos" ? SidebarStyle.titleItemConstructora : router.pathname === '/uen/inmobiliaria' ? SidebarStyle.titleItemInmobiliaria : SidebarStyle.titleItem}
+            >
+              <ListItemIcon sx={{ color: '#555' }}>
+                <BusinessCenterIcon />
+              </ListItemIcon>
+              <ListItemText primary="Proyectos" />
+              {openProyecto ? <ExpandLess /> : <ExpandMore />}
+            </ListItem>
+            <Collapse in={openProyecto} timeout="auto" unmountOnExit>
+              <List component="div" disablePadding style={{ display: 'flex', flexDirection: 'row' }}>
+                <div>
+                  <div style={SidebarStyle.line}></div>
+                </div>
+                <div>
+                  <ListItem button selected={selectedItem === 'Escrituracion'} onClick={() => handleItemClick('Escrituracion', '/informes/escrituracion')} sx={router.pathname === "/uen/constructora" ? SidebarStyle.item : router.pathname === '/uen/inmobiliaria' ? SidebarStyle.itemInmobiliaria : router.pathname === "/uen/unidad-apoyo" ? SidebarStyle.itemUA : SidebarStyle.item}>
+                    <ListItemText primary="Escrituración" />
+                  </ListItem>
+                  {/* <ListItem button selected={selectedItem === 'PreVentas'} onClick={() => handleItemClick('PreVentas', '/informes/ejecutado')} sx={router.pathname === "/uen/constructora" ? SidebarStyle.item : router.pathname === '/uen/inmobiliaria' ? SidebarStyle.itemInmobiliaria : router.pathname === "/uen/unidad-apoyo" ? SidebarStyle.itemUA : SidebarStyle.item}>
+                    <ListItemText primary="PreVentas" />
+                  </ListItem> */}
                 </div>
               </List>
             </Collapse>
